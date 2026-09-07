@@ -386,7 +386,9 @@ class HarnessServer:
 
             run_id = self._new_run_id()
             self._update_run(run_id, model=model_name, task="agent",
-                             total=max_steps, status="running", done=0, events=[])
+                             task_desc=task, workspace=str(ws), total=max_steps,
+                             status="running", done=0, events=[],
+                             created_at=time.strftime("%Y-%m-%d %H:%M:%S"))
             self._agent_stop[run_id] = False
 
             def generate():
@@ -429,6 +431,27 @@ class HarnessServer:
         def api_agent_stop(run_id: str):
             self._agent_stop[run_id] = True
             return jsonify({"ok": True})
+
+        @app.route("/api/agent/runs")
+        def api_agent_runs():
+            """List past agent runs (newest first) with their full event traces."""
+            with self._lock:
+                runs = []
+                for rid, r in sorted(self._runs.items(), reverse=True):
+                    if r.get("task") != "agent":
+                        continue
+                    runs.append({
+                        "id": rid,
+                        "task_desc": r.get("task_desc", ""),
+                        "workspace": r.get("workspace", ""),
+                        "model": r.get("model", ""),
+                        "status": r.get("status", ""),
+                        "done": r.get("done", 0),
+                        "total": r.get("total", 0),
+                        "created_at": r.get("created_at", ""),
+                        "events": r.get("events", []),
+                    })
+            return jsonify({"runs": runs[:50]})
 
     # --------------------------------------------------------- evaluation
     def _run_evaluation(
@@ -610,25 +633,49 @@ _INDEX_HTML = r"""<!DOCTYPE html>
 
   /* ---------- agent ---------- */
   .agent-layout{display:flex;gap:16px;height:100%;padding:16px;overflow:hidden}
-  .agent-config{width:330px;flex-shrink:0;overflow-y:auto}
-  .agent-config .field{margin-bottom:12px}
-  .agent-config .field label{display:block;color:var(--muted);font-size:12px;margin-bottom:5px}
-  .agent-config .field input,.agent-config .field select,.agent-config .field textarea{width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-size:13px;font-family:inherit;outline:none}
-  .agent-config .field input:focus,.agent-config .field select:focus,.agent-config .field textarea:focus{border-color:var(--accent)}
-  .agent-config .field textarea{min-height:110px;resize:vertical}
-  .agent-config .btn-row{display:flex;gap:10px;margin-top:14px}
+  .agent-side{padding:0}
+  .agent-side-label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:10px 14px 4px}
+  .ws-switch{display:flex;gap:6px;padding:0 12px 4px}
+  .ws-switch select{flex:1;min-width:0;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 8px;color:var(--text);font-size:12px;outline:none}
+  .ws-switch select:focus{border-color:var(--accent)}
+  .ws-switch button{padding:6px 10px;font-size:13px}
+  #agent-task-list{flex:1;overflow-y:auto;padding:0 8px}
+  .atk-item{padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px;margin-bottom:2px;transition:background .15s}
+  .atk-item:hover,.atk-item.active{background:var(--panel2)}
+  .atk-item .atk-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+  .atk-item .atk-meta{color:var(--muted);font-size:11px;margin-top:2px;display:flex;justify-content:space-between;gap:6px}
+  .atk-item .live-badge{color:var(--warn)}
   .agent-main{flex:1;display:flex;flex-direction:column;gap:12px;min-width:0}
-  .agent-status{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:13px;flex-shrink:0}
-  .agent-status .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0}
-  .agent-status .dot.running{background:var(--warn);animation:agent-pulse 1.2s infinite}
-  .agent-status .dot.done{background:var(--good)}
-  .agent-status .dot.error{background:var(--bad)}
+  .agent-taskbar{display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 16px;flex-shrink:0}
+  .agent-taskbar .tb-main{flex:1;min-width:0}
+  .agent-taskbar .tb-title{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .agent-taskbar .tb-sub{color:var(--muted);font-size:12px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .agent-taskbar .tb-status{display:flex;align-items:center;gap:8px;font-size:13px;flex-shrink:0}
+  .agent-taskbar .tb-status .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0}
+  .agent-taskbar .tb-status .dot.running{background:var(--warn);animation:agent-pulse 1.2s infinite}
+  .agent-taskbar .tb-status .dot.done{background:var(--good)}
+  .agent-taskbar .tb-status .dot.error{background:var(--bad)}
   @keyframes agent-pulse{0%,100%{opacity:1}50%{opacity:.3}}
-  .agent-status .meta{color:var(--muted);margin-left:auto;font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .agent-taskbar .tb-status .meta{color:var(--muted);font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .agent-taskbar .tb-actions{display:flex;gap:6px;flex-shrink:0}
+  .agent-taskbar .mini{padding:5px 12px;font-size:12px}
   .agent-trace{flex:1;overflow-y:auto;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;font-size:13px}
+  .run-summary{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;padding:6px 10px;margin-bottom:10px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;cursor:pointer;user-select:none}
+  .run-summary:hover{color:var(--text)}
+  .run-summary .chev{font-size:9px;transition:transform .15s;display:inline-block}
+  .run-summary.collapsed .chev{transform:rotate(-90deg)}
+  .agent-composer{flex-shrink:0;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+  .agent-composer textarea{width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none;min-height:56px;resize:vertical}
+  .agent-composer textarea:focus{border-color:var(--accent)}
+  .composer-row{display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap}
+  .composer-row select,.composer-row input{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 9px;color:var(--text);font-size:12px;outline:none}
+  .composer-row select:focus,.composer-row input:focus{border-color:var(--accent)}
+  .composer-row #agent-max-steps{width:64px}
+  .composer-row #agent-run{margin-left:auto}
   .agent-placeholder{color:var(--muted);text-align:center;padding:60px 24px;line-height:2}
   .step-card{background:var(--panel2);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden}
-  .step-head{display:flex;align-items:center;gap:9px;padding:9px 14px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--border);font-size:12px}
+  .step-card.collapsed .sec{display:none}
+  .step-head{display:flex;align-items:center;gap:9px;padding:9px 14px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--border);font-size:12px;cursor:pointer;user-select:none}
   .step-badge{background:var(--accent);color:#fff;border-radius:10px;padding:1px 9px;font-size:11px;font-weight:600;flex-shrink:0}
   .step-head .tool-name{color:var(--accent);font-weight:600;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
   .step-head .step-state{margin-left:auto;color:var(--good);font-size:11px}
@@ -797,29 +844,59 @@ _INDEX_HTML = r"""<!DOCTYPE html>
   <!-- =================== AGENT =================== -->
   <div class="view" id="view-agent">
     <div class="agent-layout">
-      <div class="agent-config">
-        <div class="eval-card">
-          <h2>Agent Task</h2>
-          <div class="field"><label>Model</label><select id="agent-model"></select></div>
-          <div class="field"><label>Workspace</label><input id="agent-workspace" placeholder="C:\projects\my-app"></div>
-          <div class="field"><label>Max steps</label><input id="agent-max-steps" type="number" min="1" max="50" value="25"></div>
-          <div class="field"><label>Task</label><textarea id="agent-task" placeholder="Describe the task, e.g. 'Read main.py, find the bug causing the crash, fix it, and run the tests.'"></textarea></div>
-          <div class="btn-row"><button id="agent-run">▶ Run Agent</button><button id="agent-stop" class="secondary" disabled>Stop</button></div>
+      <div class="chat-sidebar agent-side">
+        <button class="new-chat" id="agent-new">＋ 新建任务</button>
+        <div class="agent-side-label">工作区</div>
+        <div class="ws-switch">
+          <select id="agent-workspace-select"></select>
+          <button id="agent-ws-add" title="添加工作区目录">＋</button>
+        </div>
+        <div class="agent-side-label">任务历史</div>
+        <div id="agent-task-list">
+          <div class="conv-empty">暂无任务<br>点击上方新建</div>
         </div>
       </div>
       <div class="agent-main">
-        <div class="agent-status" id="agent-status" style="display:none">
-          <span class="dot" id="agent-status-dot"></span>
-          <span id="agent-status-text"></span>
-          <span class="meta" id="agent-status-meta"></span>
+        <div class="agent-taskbar">
+          <div class="tb-main">
+            <div class="tb-title" id="agent-tb-title">新任务</div>
+            <div class="tb-sub" id="agent-tb-sub">描述任务后点击运行，每一步的思考、执行与观察实时可见</div>
+          </div>
+          <div class="tb-status" id="agent-tb-status" style="display:none">
+            <span class="dot" id="agent-status-dot"></span>
+            <span id="agent-status-text"></span>
+            <span class="meta" id="agent-status-meta"></span>
+          </div>
+          <div class="tb-actions">
+            <button id="agent-collapse-all" class="mini" title="收起执行过程">收起过程</button>
+            <button id="agent-expand-all" class="mini" title="展开执行过程">展开过程</button>
+          </div>
         </div>
         <div class="agent-trace" id="agent-trace">
+          <div id="agent-run-summary" class="run-summary" style="display:none">
+            <span class="chev">▼</span><span id="agent-run-summary-text"></span>
+          </div>
           <div id="agent-steps">
             <div class="agent-placeholder">
-              配置好左侧参数后点击 <b>Run Agent</b>。<br>
+              在下方输入任务描述，点击 <b>▶ 运行</b> 开始。<br>
               Agent 会自主探索文件、编写代码、执行命令来完成任务，<br>
-              每一步的思考过程、执行步骤与观察结果都会实时展示在这里。
+              每一步的思考过程、执行步骤与观察结果都会实时展示，可随时展开或收起。
             </div>
+          </div>
+        </div>
+        <div class="agent-composer">
+          <textarea id="agent-task" placeholder="描述任务… 例如：阅读 note.txt 并完成其中的要求"></textarea>
+          <div class="composer-row">
+            <select id="agent-model" title="模型"></select>
+            <select id="agent-reasoning" title="推理强度">
+              <option value="">推理强度：默认</option>
+              <option value="low">推理强度：低</option>
+              <option value="medium">推理强度：中</option>
+              <option value="high">推理强度：高</option>
+            </select>
+            <input id="agent-max-steps" type="number" min="1" max="50" value="25" title="最大步数">
+            <button id="agent-run">▶ 运行</button>
+            <button id="agent-stop" class="secondary" disabled>停止</button>
           </div>
         </div>
       </div>
@@ -965,53 +1042,100 @@ function deleteModel(name) {
 }
 
 // ---------- agent ----------
-let agentRunId = null;
+let agentRunId = null;          // run id of the streaming task
 let agentStreamDone = true;
+let agentActiveKey = null;      // '__new__' | '__live__' (stream, id pending) | runId
 const agentTraceEl = document.getElementById('agent-trace');
 const agentStepsEl = document.getElementById('agent-steps');
+const agentRunSummaryEl = document.getElementById('agent-run-summary');
+const AGENT_PLACEHOLDER = '<div class="agent-placeholder">在下方输入任务描述，点击 <b>▶ 运行</b> 开始。<br>' +
+  'Agent 会自主探索文件、编写代码、执行命令来完成任务，<br>' +
+  '每一步的思考过程、执行步骤与观察结果都会实时展示，可随时展开或收起。</div>';
 let agentCurCard = null;      // step card currently receiving sections
 let agentCurStep = null;      // step number of agentCurCard
-let agentStepCount = 0;       // steps that performed a tool call
+let agentStepCount = 0;       // tool calls performed
+let agentThoughtCount = 0;    // thought sections rendered
 let agentTotalSteps = 0;
-let agentRunning = false;
+let agentRunning = false;     // the streaming task is still running
 let agentTimer = null;
 let agentStartTime = null;
+let agentTasks = {};          // runId -> {id,title,workspace,model,status,created,events}
+let agentWorkspaces = [];     // saved workspace directories
 
 function agentScroll() {
   requestAnimationFrame(() => { agentTraceEl.scrollTop = agentTraceEl.scrollHeight; });
 }
 
 function agentSetStatus(state, text) {
-  const bar = document.getElementById('agent-status');
-  bar.style.display = 'flex';
+  document.getElementById('agent-tb-status').style.display = 'flex';
   document.getElementById('agent-status-dot').className = 'dot ' + state;
   document.getElementById('agent-status-text').textContent = text;
+}
+
+function agentSetStatusHidden() {
+  document.getElementById('agent-tb-status').style.display = 'none';
 }
 
 function agentSetMeta(text) {
   document.getElementById('agent-status-meta').textContent = text || '';
 }
 
-function agentStartTimer() {
-  agentStartTime = Date.now();
-  if (agentTimer) clearInterval(agentTimer);
-  agentTimer = setInterval(() => {
-    if (!agentRunning) return;
-    const s = Math.floor((Date.now() - agentStartTime) / 1000);
-    const mm = String(Math.floor(s / 60)).padStart(2, '0');
-    const ss = String(s % 60).padStart(2, '0');
-    agentSetMeta(`step ${agentStepCount}/${agentTotalSteps || '?'} · ${mm}:${ss}`);
-  }, 1000);
+function agentClearRender() {
+  agentStepsEl.innerHTML = '';
+  agentCurCard = null;
+  agentCurStep = null;
+  agentStepCount = 0;
+  agentThoughtCount = 0;
+  agentTotalSteps = 0;
+  agentRunSummaryEl.style.display = 'none';
+  agentRunSummaryEl.classList.remove('collapsed');
+  agentStepsEl.style.display = '';
 }
 
-function agentStopTimer() {
-  if (agentTimer) { clearInterval(agentTimer); agentTimer = null; }
+function agentShowPlaceholder() {
+  agentStepsEl.innerHTML = AGENT_PLACEHOLDER;
 }
 
-function agentFinishRun(text, state) {
-  agentRunning = false;
-  agentStopTimer();
-  agentSetStatus(state, text);
+function agentViewNew() {
+  agentActiveKey = '__new__';
+  agentClearRender();
+  agentShowPlaceholder();
+  agentSetStatusHidden();
+  agentSetMeta('');
+  document.getElementById('agent-tb-title').textContent = '新任务';
+  document.getElementById('agent-tb-sub').textContent = '描述任务后点击运行，每一步的思考、执行与观察实时可见';
+  agentRenderTaskList();
+}
+
+function agentViewTask(runId) {
+  const t = agentTasks[runId];
+  if (!t) return;
+  agentActiveKey = runId;
+  agentClearRender();
+  t.events.forEach(evt => renderAgentEvent(evt));
+  if (t.status === 'running') {
+    agentSetStatus('running', 'Agent 运行中…');
+    agentSetMeta(`step ${agentStepCount}/${agentTotalSteps || '?'}`);
+  } else {
+    const map = {done: ['done', '✅ 任务完成'], stopped: ['error', '⏹ 已停止'], error: ['error', '✕ 出错']};
+    const m = map[t.status] || ['done', '已结束'];
+    agentSetStatus(m[0], m[1]);
+    agentSetMeta(`${agentStepCount} 次工具调用`);
+  }
+  document.getElementById('agent-tb-title').textContent = t.title;
+  document.getElementById('agent-tb-sub').textContent = (t.workspace || '') + (t.model ? ' · ' + t.model : '');
+  agentRenderTaskList();
+  agentScroll();
+}
+
+function agentUpdateSummary() {
+  if (agentActiveKey === '__new__' || (!agentStepCount && !agentThoughtCount)) {
+    agentRunSummaryEl.style.display = 'none';
+    return;
+  }
+  agentRunSummaryEl.style.display = 'flex';
+  document.getElementById('agent-run-summary-text').textContent =
+    `${agentStepCount} 次工具调用 · ${agentThoughtCount} 步思考 · 点击收起/展开过程`;
 }
 
 function agentNewStepCard(step) {
@@ -1019,6 +1143,7 @@ function agentNewStepCard(step) {
   card.className = 'step-card';
   card.innerHTML = `<div class="step-head"><span class="step-badge">Step ${esc(String(step))}</span>` +
     `<span class="tool-name"></span><span class="step-state"></span></div>`;
+  card.querySelector('.step-head').onclick = () => card.classList.toggle('collapsed');
   agentStepsEl.appendChild(card);
   agentScroll();
   return card;
@@ -1049,29 +1174,140 @@ function agentAddSection(card, icon, label, bodyClass, text, collapsed) {
   return sec;
 }
 
+function agentRelTime(ms) {
+  const d = Date.now() - ms;
+  if (d < 60000) return '刚刚';
+  if (d < 3600000) return Math.floor(d / 60000) + ' 分钟前';
+  if (d < 86400000) return Math.floor(d / 3600000) + ' 小时前';
+  return Math.floor(d / 86400000) + ' 天前';
+}
+
+function agentStatusBadge(t) {
+  if (t.status === 'running') return '<span class="live-badge">● 运行中</span>';
+  if (t.status === 'error') return '<span style="color:var(--bad)">✕ 出错</span>';
+  if (t.status === 'stopped') return '<span>⏹ 已停止</span>';
+  return '<span style="color:var(--good)">✓ 完成</span>';
+}
+
+function agentRenderTaskList() {
+  const list = document.getElementById('agent-task-list');
+  const ids = Object.keys(agentTasks).sort((a, b) => agentTasks[b].created - agentTasks[a].created);
+  if (!ids.length) {
+    list.innerHTML = '<div class="conv-empty">暂无任务<br>点击上方新建</div>';
+    return;
+  }
+  list.innerHTML = '';
+  ids.forEach(id => {
+    const t = agentTasks[id];
+    const item = document.createElement('div');
+    item.className = 'atk-item' + (agentActiveKey === id ? ' active' : '');
+    item.innerHTML = `<div class="atk-title">${esc(t.title)}</div>` +
+      `<div class="atk-meta"><span>${esc(agentRelTime(t.created))}</span>${agentStatusBadge(t)}</div>`;
+    item.onclick = () => agentViewTask(id);
+    list.appendChild(item);
+  });
+}
+
+// ------------------- workspaces -------------------
+const AGENT_WS_KEY = 'fylharness_agent_workspaces';
+
+function agentLoadWorkspaces() {
+  try {
+    agentWorkspaces = JSON.parse(localStorage.getItem(AGENT_WS_KEY) || '[]');
+  } catch (e) { agentWorkspaces = []; }
+  if (!Array.isArray(agentWorkspaces)) agentWorkspaces = [];
+  agentRenderWorkspaceSelect();
+}
+
+function agentSaveWorkspaces() {
+  localStorage.setItem(AGENT_WS_KEY, JSON.stringify(agentWorkspaces));
+}
+
+function agentRenderWorkspaceSelect() {
+  const sel = document.getElementById('agent-workspace-select');
+  const cur = sel.value;
+  sel.innerHTML = '';
+  if (!agentWorkspaces.length) {
+    const o = document.createElement('option');
+    o.value = '';
+    o.textContent = '选择工作区…';
+    sel.appendChild(o);
+  }
+  agentWorkspaces.forEach(w => {
+    const o = document.createElement('option');
+    o.value = w;
+    o.textContent = w;
+    sel.appendChild(o);
+  });
+  if (cur && agentWorkspaces.includes(cur)) sel.value = cur;
+}
+
+function agentAddWorkspace(path) {
+  path = (path || '').trim();
+  if (!path) return;
+  if (!agentWorkspaces.includes(path)) {
+    agentWorkspaces.unshift(path);
+    agentSaveWorkspaces();
+  }
+  agentRenderWorkspaceSelect();
+  document.getElementById('agent-workspace-select').value = path;
+}
+
+// ------------------- history -------------------
+function agentLoadHistory() {
+  fetch('/api/agent/runs').then(r => r.json()).then(data => {
+    (data.runs || []).forEach(r => {
+      if (agentTasks[r.id]) return;  // keep live/cached versions
+      agentTasks[r.id] = {
+        id: r.id,
+        title: (r.task_desc || 'Agent 任务').slice(0, 50),
+        workspace: r.workspace || '',
+        model: r.model || '',
+        status: r.status === 'error' ? 'error' : 'done',
+        created: Date.parse(r.created_at) || Date.now(),
+        events: r.events || [],
+      };
+      const w = (r.workspace || '').trim();
+      if (w && !agentWorkspaces.includes(w)) agentWorkspaces.push(w);
+    });
+    agentRenderWorkspaceSelect();
+    agentRenderTaskList();
+  }).catch(() => {});
+}
+
 document.getElementById('agent-run').onclick = function() {
   if (!agentStreamDone) return;
   const model = document.getElementById('agent-model').value;
-  const workspace = document.getElementById('agent-workspace').value.trim();
+  const workspace = document.getElementById('agent-workspace-select').value;
   const task = document.getElementById('agent-task').value.trim();
   const maxSteps = parseInt(document.getElementById('agent-max-steps').value);
-  if (!model) { alert('Select a model'); return; }
-  if (!workspace) { alert('Enter workspace directory'); return; }
-  if (!task) { alert('Enter a task description'); return; }
-  agentStepsEl.innerHTML = '';
-  agentCurCard = null;
-  agentCurStep = null;
-  agentStepCount = 0;
+  const reasoning = document.getElementById('agent-reasoning').value;
+  if (!model) { alert('请选择模型'); return; }
+  if (!workspace) { alert('请先在左侧选择或添加工作区目录'); return; }
+  if (!task) { alert('请输入任务描述'); return; }
+  agentAddWorkspace(workspace);
+  // fresh view for the incoming live task
+  agentActiveKey = '__live__';
+  agentClearRender();
   agentRunning = true;
-  agentSetStatus('running', 'Agent 运行中…');
-  agentSetMeta('');
-  agentStartTimer();
-  this.disabled = true;
-  document.getElementById('agent-stop').disabled = false;
   agentStreamDone = false;
   agentRunId = null;
+  this.disabled = true;
+  document.getElementById('agent-stop').disabled = false;
+  agentSetStatus('running', 'Agent 运行中…');
+  agentSetMeta('');
+  agentStartTime = Date.now();
+  if (agentTimer) clearInterval(agentTimer);
+  agentTimer = setInterval(() => {
+    if (!agentRunning || agentActiveKey !== agentRunId) return;
+    const s = Math.floor((Date.now() - agentStartTime) / 1000);
+    const mm = String(Math.floor(s / 60)).padStart(2, '0');
+    const ss = String(s % 60).padStart(2, '0');
+    agentSetMeta(`step ${agentStepCount}/${agentTotalSteps || '?'} · ${mm}:${ss}`);
+  }, 1000);
 
   const body = { model, workspace, task, max_steps: maxSteps };
+  if (reasoning) body.reasoning_effort = reasoning;
   fetch('/api/agent', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -1084,9 +1320,14 @@ document.getElementById('agent-run').onclick = function() {
       reader.read().then(({done, value}) => {
         if (done) {
           agentStreamDone = true;
-          if (agentRunning) agentFinishRun('已结束', 'done');
+          if (agentRunning) {
+            agentRunning = false;
+            agentStopTimer();
+            agentSetStatus('done', '已结束');
+          }
           document.getElementById('agent-run').disabled = false;
           document.getElementById('agent-stop').disabled = true;
+          agentRenderTaskList();
           return;
         }
         buffer += decoder.decode(value, {stream: true});
@@ -1097,15 +1338,19 @@ document.getElementById('agent-run').onclick = function() {
           const payload = line.slice(6);
           if (payload === '[DONE]') {
             agentStreamDone = true;
-            if (agentRunning) agentFinishRun('已结束', 'done');
+            if (agentRunning) {
+              agentRunning = false;
+              agentStopTimer();
+              agentSetStatus('done', '已结束');
+            }
             document.getElementById('agent-run').disabled = false;
             document.getElementById('agent-stop').disabled = true;
+            agentRenderTaskList();
             return;
           }
           try {
             const evt = JSON.parse(payload);
-            if (evt.run_id && !agentRunId) agentRunId = evt.run_id;
-            renderAgentEvent(evt);
+            agentHandleStreamEvent(evt);
           } catch(e) {}
         }
         read();
@@ -1113,13 +1358,66 @@ document.getElementById('agent-run').onclick = function() {
     }
     read();
   }).catch(err => {
-    appendAgentError('Request failed: ' + err);
+    appendAgentError('请求失败: ' + err);
     agentStreamDone = true;
-    if (agentRunning) agentFinishRun('连接失败', 'error');
+    if (agentRunning) {
+      agentRunning = false;
+      agentStopTimer();
+      agentSetStatus('error', '✕ 连接失败');
+    }
+    if (agentRunId && agentTasks[agentRunId]) agentTasks[agentRunId].status = 'error';
     document.getElementById('agent-run').disabled = false;
     document.getElementById('agent-stop').disabled = true;
+    agentRenderTaskList();
   });
 };
+
+// Register, persist and route one streamed event. Rendering only happens
+// when the affected task is the one being viewed.
+function agentHandleStreamEvent(evt) {
+  if (evt.run_id && !agentRunId) {
+    agentRunId = evt.run_id;
+    agentTasks[agentRunId] = {
+      id: agentRunId,
+      title: (document.getElementById('agent-task').value.trim() || 'Agent 任务').slice(0, 50),
+      workspace: document.getElementById('agent-workspace-select').value,
+      model: document.getElementById('agent-model').value,
+      status: 'running',
+      created: Date.now(),
+      events: [],
+    };
+    if (agentActiveKey === '__live__') agentActiveKey = agentRunId;
+    document.getElementById('agent-tb-title').textContent = agentTasks[agentRunId].title;
+    document.getElementById('agent-tb-sub').textContent =
+      agentTasks[agentRunId].workspace + ' · ' + agentTasks[agentRunId].model;
+    agentRenderTaskList();
+  }
+  const t = agentRunId ? agentTasks[agentRunId] : null;
+  if (t) {
+    t.events.push(evt);
+    if (evt.type === 'finish') t.status = 'done';
+    if (evt.type === 'end') {
+      t.status = String(evt.reason || '').includes('stopped') ? 'stopped' : 'done';
+    }
+  }
+  const viewing = agentActiveKey === agentRunId || agentActiveKey === '__live__';
+  if (viewing) renderAgentEvent(evt);
+  if (viewing && evt.type === 'finish' && agentRunning) {
+    agentRunning = false;
+    agentStopTimer();
+    agentSetStatus('done', '✅ 任务完成');
+    agentSetMeta(`共 ${agentStepCount} 次工具调用`);
+    agentRenderTaskList();
+  }
+  if (viewing && evt.type === 'end' && agentRunning) {
+    const stopped = String(evt.reason || '').includes('stopped');
+    agentRunning = false;
+    agentStopTimer();
+    agentSetStatus(stopped ? 'error' : 'done', stopped ? '⏹ 已停止' : '已结束');
+    agentSetMeta(evt.reason || '');
+    agentRenderTaskList();
+  }
+}
 
 document.getElementById('agent-stop').onclick = function() {
   if (agentRunId) fetch('/api/agent/' + agentRunId + '/stop', {method: 'POST'});
@@ -1139,21 +1437,23 @@ function renderAgentEvent(evt) {
       const bodies = d.querySelectorAll('.sec-body');
       bodies[0].textContent = evt.task || '';
       bodies[1].textContent = evt.workspace || '';
+      d.querySelector('.step-head').onclick = () => d.classList.toggle('collapsed');
       agentStepsEl.appendChild(d);
       agentScroll();
       break;
     }
     case 'thought': {
+      agentThoughtCount++;
       const card = agentEnsureCard(evt.step);
       agentAddSection(card, '🧠', '思考过程', 'thought', evt.text || '(空)');
       break;
     }
     case 'tool_call': {
+      agentStepCount++;
       const card = agentEnsureCard(evt.step);
       card.querySelector('.tool-name').textContent = evt.tool || '';
       agentAddSection(card, '⚡', '执行步骤 · ' + (evt.tool || ''), 'args',
                       JSON.stringify(evt.args || {}, null, 2));
-      agentStepCount = evt.step;
       break;
     }
     case 'tool_result': {
@@ -1171,10 +1471,6 @@ function renderAgentEvent(evt) {
       break;
     }
     case 'finish': {
-      agentRunning = false;
-      agentStopTimer();
-      agentSetStatus('done', '✅ 任务完成');
-      agentSetMeta(`共 ${agentStepCount} 步`);
       const d = document.createElement('div');
       d.className = 'finish-card';
       d.innerHTML = `<div class="fh">✅ 任务完成 · Step ${esc(String(evt.step || ''))}</div><div class="fb"></div>`;
@@ -1183,20 +1479,45 @@ function renderAgentEvent(evt) {
       agentScroll();
       break;
     }
-    case 'end': {
-      if (agentRunning) {
-        const stopped = String(evt.reason || '').includes('stopped');
-        agentFinishRun(stopped ? '⏹ 已停止' : '已结束', stopped ? 'error' : 'done');
-        agentSetMeta(evt.reason || '');
-      }
-      break;
-    }
+    case 'end':
+      break;  // reflected in the taskbar status by the stream handler
     default: {
       const card = agentCurCard || agentNewStepCard(evt.step || '?');
       agentAddSection(card, '•', evt.type || 'event', 'obs', JSON.stringify(evt));
     }
   }
+  agentUpdateSummary();
 }
+
+// ------------------- agent UI wiring -------------------
+document.getElementById('agent-new').onclick = agentViewNew;
+document.getElementById('agent-ws-add').onclick = function() {
+  const p = prompt('输入工作区目录路径，例如 F:\\test');
+  if (p) agentAddWorkspace(p);
+};
+agentRunSummaryEl.onclick = () => {
+  const collapsed = agentRunSummaryEl.classList.toggle('collapsed');
+  agentStepsEl.style.display = collapsed ? 'none' : '';
+};
+document.getElementById('agent-collapse-all').onclick = () => {
+  if (!agentStepCount && !agentThoughtCount) return;
+  agentRunSummaryEl.style.display = 'flex';
+  agentRunSummaryEl.classList.add('collapsed');
+  agentStepsEl.style.display = 'none';
+};
+document.getElementById('agent-expand-all').onclick = () => {
+  agentRunSummaryEl.classList.remove('collapsed');
+  agentStepsEl.style.display = '';
+  agentStepsEl.querySelectorAll('.step-card').forEach(c => c.classList.remove('collapsed'));
+};
+function agentStopTimer() {
+  if (agentTimer) { clearInterval(agentTimer); agentTimer = null; }
+}
+
+// init
+agentLoadWorkspaces();
+agentViewNew();
+agentLoadHistory();
 
 function appendAgentError(msg) {
   const d = document.createElement('div');
