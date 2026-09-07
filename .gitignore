@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+
+# Local dependency / test temp dirs (verification artifacts)
+.deps/
+.pytest_tmp/
+
+# Evaluation outputs (regenerable)
+outputs/
+
+# IDE
+.vscode/
+.idea/

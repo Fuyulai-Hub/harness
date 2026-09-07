@@ -1,0 +1,42 @@
+[
+  {
+    "instruction": "Solve the math problem. Give only the final numeric answer.",
+    "input": "Janet has 12 apples. She gives 4 to her friend and then buys 6 more. How many apples does she have now?",
+    "reference": "14"
+  },
+  {
+    "instruction": "Solve the math problem. Give only the final numeric answer.",
+    "input": "A train travels 60 km in 1 hour. How far will it travel in 3.5 hours at the same speed?",
+    "reference": "210"
+  },
+  {
+    "instruction": "Solve the math problem. Give only the final numeric answer.",
+    "input": "A book costs $8. If you buy 3 books, how much do you pay in total?",
+    "reference": "24"
+  },
+  {
+    "instruction": "Solve the math problem. Give only the final numeric answer.",
+    "input": "There are 5 boxes, each containing 7 pencils. How many pencils are there in total?",
+    "reference": "35"
+  },
+  {
+    "instruction": "Solve the math problem. Give only the final numeric answer.",
+    "input": "A rectangle has length 8 and width 3. What is its perimeter?",
+    "reference": "22"
+  },
+  {
+    "instruction": "Solve the math problem. Give only the final numeric answer.",
+    "input": "If a shirt costs $25 and is on a 20% discount, what is the discounted price in dollars?",
+    "reference": "20"
+  },
+  {
+    "instruction": "Solve the math problem. Give only the final numeric answer.",
+    "input": "The sum of two numbers is 50 and one is 18. What is the other number?",
+    "reference": "32"
+  },
+  {
+    "instruction": "Solve the math problem. Give only the final numeric answer.",
+    "input": "A car uses 6 liters of fuel per 100 km. How many liters for 350 km?",
+    "reference": "21"
+  }
+]

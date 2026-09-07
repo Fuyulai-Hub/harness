@@ -1,0 +1,34 @@
+[
+  {
+    "question": "What is the capital of France?",
+    "answer": ["Paris", "paris"]
+  },
+  {
+    "question": "Which planet is known as the Red Planet?",
+    "answer": ["Mars", "mars"]
+  },
+  {
+    "question": "Who wrote the play 'Romeo and Juliet'?",
+    "answer": ["William Shakespeare", "Shakespeare", "shakespeare"]
+  },
+  {
+    "question": "What is the chemical symbol for water?",
+    "answer": ["H2O", "h2o"]
+  },
+  {
+    "question": "In which year did the first human land on the Moon?",
+    "answer": ["1969"]
+  },
+  {
+    "question": "What is the largest mammal on Earth?",
+    "answer": ["Blue Whale", "blue whale", "bluewhale"]
+  },
+  {
+    "question": "Which programming language was created by Guido van Rossum?",
+    "answer": ["Python", "python"]
+  },
+  {
+    "question": "What is the smallest prime number?",
+    "answer": ["2", "two"]
+  }
+]

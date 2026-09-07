@@ -1,0 +1,11 @@
+# Core dependencies (all ship Windows wheels on PyPI).
+pyyaml>=6.0
+requests>=2.28
+
+# Interactive harness server: chat playground + evaluation UI + results viewer.
+flask>=2.3
+
+# Optional: only needed for the async executor or Hugging Face datasets.
+# Install on demand: pip install fylharness[async] or fylharness[hf]
+aiohttp>=3.8; platform_system != "Emscripten"
+# datasets>=2.14   # uncomment to use the 'huggingface' adapter

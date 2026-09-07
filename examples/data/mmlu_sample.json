@@ -1,0 +1,50 @@
+[
+  {
+    "question": "Which of the following is a primary storage device in a computer?",
+    "choices": ["RAM", "CPU", "Monitor", "Keyboard"],
+    "answer": 0,
+    "subject": "computer_science"
+  },
+  {
+    "question": "What data structure uses LIFO (Last In, First Out) ordering?",
+    "choices": ["Queue", "Stack", "Tree", "Graph"],
+    "answer": 1,
+    "subject": "computer_science"
+  },
+  {
+    "question": "Which sorting algorithm has the best average time complexity O(n log n)?",
+    "choices": ["Bubble Sort", "Insertion Sort", "Merge Sort", "Selection Sort"],
+    "answer": 2,
+    "subject": "computer_science"
+  },
+  {
+    "question": "In object-oriented programming, what feature allows a subclass to override a parent method?",
+    "choices": ["Encapsulation", "Polymorphism", "Abstraction", "Inheritance"],
+    "answer": 1,
+    "subject": "computer_science"
+  },
+  {
+    "question": "Which network protocol is connection-oriented and reliable?",
+    "choices": ["UDP", "TCP", "IP", "ICMP"],
+    "answer": 1,
+    "subject": "computer_science"
+  },
+  {
+    "question": "What is the time complexity of accessing an array element by index?",
+    "choices": ["O(n)", "O(log n)", "O(1)", "O(n^2)"],
+    "answer": 2,
+    "subject": "computer_science"
+  },
+  {
+    "question": "Which design pattern ensures a class has only one instance?",
+    "choices": ["Factory", "Singleton", "Observer", "Strategy"],
+    "answer": 1,
+    "subject": "software_engineering"
+  },
+  {
+    "question": "In a binary search tree, the left subtree of a node contains only values?",
+    "choices": ["Greater than the node", "Less than the node", "Equal to the node", "Random values"],
+    "answer": 1,
+    "subject": "data_structures"
+  }
+]

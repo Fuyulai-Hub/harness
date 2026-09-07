@@ -1,0 +1,74 @@
+# Example configuration for Zhipu AI (BigModel / GLM).
+#
+# Zhipu exposes an OpenAI-compatible endpoint, so the standard `openai` model
+# type works with zero code changes.  Base URL + model ID are all that differ.
+#
+# 1. Get an API key at:  https://open.bigmodel.cn/usercenter/apikeys
+# 2. Set it as an environment variable (NEVER write it into this file):
+#      PowerShell:  $env:ZHIPU_API_KEY = "your-key-here"
+#      cmd:         set ZHIPU_API_KEY=your-key-here
+# 3. Run:
+#      fylharness run examples/config_zhipu.yaml --limit 4
+#      fylharness serve examples/config_zhipu.yaml
+#
+# Common GLM model IDs (2026): glm-4-flash (free, fast), glm-4-air,
+# glm-4-plus, glm-4-long, glm-4.5 series.  glm-4-flash caps at 4096 tokens.
+
+run:
+  output_dir: outputs/demo_zhipu
+  log_level: INFO
+  executor: thread
+  max_workers: 4
+  save_predictions: true
+  resume: true
+  seed: 42
+  tags: [zhipu, glm]
+
+models:
+  - name: glm-4-flash
+    type: openai
+    base_url: https://open.bigmodel.cn/api/paas/v4
+    api_key: ${ZHIPU_API_KEY}          # interpolated from the environment
+    api_key_env: ZHIPU_API_KEY         # fallback env var if the line above is empty
+    model: glm-4-flash
+    chat: true
+    max_tokens: 1024
+    temperature: 0.0
+    timeout: 120
+    max_retries: 5
+    retry_backoff: 2.0
+    concurrency: 4
+
+  # Add a stronger (paid) model by uncommenting:
+  # - name: glm-4-plus
+  #   type: openai
+  #   base_url: https://open.bigmodel.cn/api/paas/v4
+  #   api_key_env: ZHIPU_API_KEY
+  #   model: glm-4-plus
+  #   chat: true
+  #   max_tokens: 2048
+  #   temperature: 0.0
+
+tasks:
+  - name: mmlu_demo
+    type: multiple_choice
+    dataset:
+      adapter: local
+      path: data/mmlu_sample.json
+    params:
+      num_few_shot: 0
+    metrics: [accuracy]
+
+  - name: openqa_demo
+    type: open_qa
+    dataset:
+      adapter: local
+      path: data/open_qa_sample.json
+    metrics: [accuracy, f1]
+
+  - name: gsm8k_demo
+    type: text_generation
+    dataset:
+      adapter: local
+      path: data/gsm8k_sample.json
+    metrics: [accuracy, f1, bleu, rouge]

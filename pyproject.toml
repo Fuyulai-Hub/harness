@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fylharness"
+version = "0.1.0"
+description = "A lightweight, Windows-friendly evaluation harness for OpenAI-compatible LLMs."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "FylHarness Contributors" }]
+keywords = ["llm", "evaluation", "benchmark", "openai", "harness"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "pyyaml>=6.0",
+    "requests>=2.28",
+    "flask>=2.3",
+]
+
+[project.optional-dependencies]
+async = ["aiohttp>=3.8"]
+hf = ["datasets>=2.14"]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+fylharness = "fylharness.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["fylharness*"]

@@ -1,0 +1,61 @@
+# Example configuration for FylHarness.
+#
+# This file demonstrates a fully offline run: it uses the built-in `mock` model
+# backend (no network, no API key) so you can validate the harness end-to-end
+# before pointing it at a real LLM server.
+#
+# Run with:
+#   fylharness run examples/config_mock.yaml
+# or
+#   python examples/run_demo.py
+
+run:
+  output_dir: outputs/demo_mock
+  log_level: INFO
+  executor: thread          # "thread" (default) or "async" -- both Windows-safe
+  max_workers: 4
+  save_predictions: true
+  resume: true
+  seed: 42
+  tags: [demo, offline]
+
+models:
+  - name: mock-model
+    type: mock              # network-free backend; always picks option A
+    extra:
+      latency_ms: 2         # simulated per-request latency
+  - name: mock-lucky
+    type: mock
+    extra:
+      answer_letter: B      # simulates a model that always answers B
+
+tasks:
+  # --- Multiple-choice (MMLU-style) -----------------------------------------
+  - name: mmlu_demo
+    type: multiple_choice
+    dataset:
+      adapter: local
+      path: data/mmlu_sample.json
+      format: json
+    params:
+      num_few_shot: 0
+      instruction: "Answer the following multiple choice question with a single letter."
+    metrics: [accuracy]
+
+  # --- Open-ended QA (TriviaQA-style) ---------------------------------------
+  - name: openqa_demo
+    type: open_qa
+    dataset:
+      adapter: local
+      path: data/open_qa_sample.json
+      format: json
+    metrics: [accuracy, f1]
+
+  # --- Text generation / math (GSM8K-style) ---------------------------------
+  - name: gsm8k_demo
+    type: text_generation
+    dataset:
+      adapter: local
+      path: data/gsm8k_sample.json
+      format: json
+    metrics: [accuracy, f1]

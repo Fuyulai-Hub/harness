@@ -1,0 +1,67 @@
+# Example configuration targeting a real OpenAI-compatible endpoint.
+#
+# Copy this file, set the API key via an environment variable, and point
+# base_url at your server (the OpenAI API, vLLM, Ollama, LM Studio, ...).
+#
+#   set OPENAI_API_KEY=sk-...
+#   fylharness run examples/config_openai.yaml --limit 4
+
+run:
+  output_dir: outputs/demo_openai
+  log_level: INFO
+  executor: thread
+  max_workers: 4
+  save_predictions: true
+  resume: true
+  seed: 42
+  tags: [openai]
+
+models:
+  - name: gpt-4o-mini
+    type: openai
+    base_url: https://api.openai.com/v1
+    api_key: ${OPENAI_API_KEY}        # interpolated from the environment
+    api_key_env: OPENAI_API_KEY       # fallback env var if the line above is empty
+    model: gpt-4o-mini
+    chat: true
+    max_tokens: 256
+    temperature: 0.0
+    timeout: 120
+    max_retries: 5
+    retry_backoff: 2.0
+    concurrency: 4
+
+  # Local server example (e.g. vLLM / Ollama / llama.cpp). Comment out if unused.
+  - name: local-qwen
+    type: openai
+    base_url: http://127.0.0.1:8000/v1
+    api_key: EMPTY                    # local servers usually accept any non-empty key
+    model: Qwen/Qwen2.5-7B-Instruct
+    chat: true
+    max_tokens: 512
+    temperature: 0.0
+    concurrency: 8
+
+tasks:
+  - name: mmlu_demo
+    type: multiple_choice
+    dataset:
+      adapter: local
+      path: data/mmlu_sample.json
+    params:
+      num_few_shot: 5
+    metrics: [accuracy]
+
+  - name: openqa_demo
+    type: open_qa
+    dataset:
+      adapter: local
+      path: data/open_qa_sample.json
+    metrics: [accuracy, f1]
+
+  - name: gsm8k_demo
+    type: text_generation
+    dataset:
+      adapter: local
+      path: data/gsm8k_sample.json
+    metrics: [accuracy, f1, bleu, rouge]
