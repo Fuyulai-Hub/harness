@@ -11,8 +11,9 @@
 #      fylharness run examples/config_zhipu.yaml --limit 4
 #      fylharness serve examples/config_zhipu.yaml
 #
-# Common GLM model IDs (2026): glm-4-flash (free, fast), glm-4-air,
-# glm-4-plus, glm-4-long, glm-4.5 series.  glm-4-flash caps at 4096 tokens.
+# Common GLM model IDs (2026): glm-4.7-flash (free, coding-enhanced),
+# glm-4-flash (free, fast), glm-4-air, glm-4-plus, glm-4-long,
+# glm-4.5 series, glm-4.7 series.
 
 run:
   output_dir: outputs/demo_zhipu
@@ -25,6 +26,21 @@ run:
   tags: [zhipu, glm]
 
 models:
+  # Free, coding/agentic-enhanced; 200K context. Recommended for the Agent tab.
+  - name: glm-4.7-flash
+    type: openai
+    base_url: https://open.bigmodel.cn/api/paas/v4
+    api_key: ${ZHIPU_API_KEY}          # interpolated from the environment
+    api_key_env: ZHIPU_API_KEY         # fallback env var if the line above is empty
+    model: glm-4.7-flash
+    chat: true
+    max_tokens: 2048
+    temperature: 0.0
+    timeout: 120
+    max_retries: 5
+    retry_backoff: 2.0
+    concurrency: 4
+
   - name: glm-4-flash
     type: openai
     base_url: https://open.bigmodel.cn/api/paas/v4
