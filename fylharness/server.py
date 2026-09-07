@@ -610,17 +610,44 @@ _INDEX_HTML = r"""<!DOCTYPE html>
 
   /* ---------- agent ---------- */
   .agent-layout{display:flex;gap:16px;height:100%;padding:16px;overflow:hidden}
-  .agent-config{width:420px;flex-shrink:0;overflow-y:auto}
-  .agent-trace{flex:1;overflow-y:auto;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px}
-  .agent-step{margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)}
-  .agent-step:last-child{border-bottom:none}
-  .agent-step .step-head{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
-  .agent-step .thought{color:var(--text);margin:4px 0;font-style:italic}
-  .agent-step .tool-call{background:var(--panel2);padding:8px 12px;border-radius:6px;margin:6px 0;border-left:3px solid var(--accent)}
-  .agent-step .tool-call .tname{color:var(--accent);font-weight:600}
-  .agent-step .tool-result{background:var(--bg);padding:8px 12px;border-radius:6px;margin:6px 0;white-space:pre-wrap;word-break:break-word;border:1px solid var(--border);max-height:300px;overflow-y:auto}
-  .agent-step .error{color:var(--bad)}
-  .agent-step .finish{color:var(--good);font-weight:600}
+  .agent-config{width:330px;flex-shrink:0;overflow-y:auto}
+  .agent-config .field{margin-bottom:12px}
+  .agent-config .field label{display:block;color:var(--muted);font-size:12px;margin-bottom:5px}
+  .agent-config .field input,.agent-config .field select,.agent-config .field textarea{width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-size:13px;font-family:inherit;outline:none}
+  .agent-config .field input:focus,.agent-config .field select:focus,.agent-config .field textarea:focus{border-color:var(--accent)}
+  .agent-config .field textarea{min-height:110px;resize:vertical}
+  .agent-config .btn-row{display:flex;gap:10px;margin-top:14px}
+  .agent-main{flex:1;display:flex;flex-direction:column;gap:12px;min-width:0}
+  .agent-status{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:13px;flex-shrink:0}
+  .agent-status .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0}
+  .agent-status .dot.running{background:var(--warn);animation:agent-pulse 1.2s infinite}
+  .agent-status .dot.done{background:var(--good)}
+  .agent-status .dot.error{background:var(--bad)}
+  @keyframes agent-pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .agent-status .meta{color:var(--muted);margin-left:auto;font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .agent-trace{flex:1;overflow-y:auto;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;font-size:13px}
+  .agent-placeholder{color:var(--muted);text-align:center;padding:60px 24px;line-height:2}
+  .step-card{background:var(--panel2);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden}
+  .step-head{display:flex;align-items:center;gap:9px;padding:9px 14px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--border);font-size:12px}
+  .step-badge{background:var(--accent);color:#fff;border-radius:10px;padding:1px 9px;font-size:11px;font-weight:600;flex-shrink:0}
+  .step-head .tool-name{color:var(--accent);font-weight:600;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .step-head .step-state{margin-left:auto;color:var(--good);font-size:11px}
+  .sec{padding:0 14px}
+  .sec + .sec{border-top:1px solid var(--border)}
+  .sec-toggle{display:flex;align-items:center;gap:8px;padding:8px 0;cursor:pointer;user-select:none;color:var(--muted);font-size:12px}
+  .sec-toggle:hover{color:var(--text)}
+  .sec-toggle .chev{font-size:9px;transition:transform .15s}
+  .sec.collapsed .chev{transform:rotate(-90deg)}
+  .sec.collapsed .sec-body{display:none}
+  .sec-body{padding:0 0 10px;line-height:1.65;white-space:pre-wrap;word-break:break-word}
+  .sec-body.thought{font-style:italic}
+  .sec-body.args,.sec-body.obs{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-top:2px}
+  .sec-body.obs{max-height:260px;overflow-y:auto}
+  .sec-body.errtext{color:var(--bad)}
+  .finish-card{background:rgba(63,185,80,.08);border:1px solid var(--good);border-radius:10px;padding:14px 16px;margin-bottom:12px}
+  .finish-card .fh{color:var(--good);font-weight:600;font-size:13px;margin-bottom:6px}
+  .finish-card .fb{white-space:pre-wrap;word-break:break-word;line-height:1.7}
+  .agent-err-card{background:rgba(248,81,73,.07);border:1px solid var(--bad);border-radius:10px;padding:12px 16px;margin-bottom:12px;color:var(--bad);white-space:pre-wrap;word-break:break-word}
 
   /* ---------- evaluate ---------- */
   .eval-view{padding:20px;overflow-y:auto}
@@ -773,17 +800,27 @@ _INDEX_HTML = r"""<!DOCTYPE html>
       <div class="agent-config">
         <div class="eval-card">
           <h2>Agent Task</h2>
-          <div class="ws-row"><label>Model</label><select id="agent-model" class="sidebar-select"></select></div>
-          <div class="ws-row"><label>Workspace</label><input id="agent-workspace" placeholder="C:\projects\my-app" style="min-width:300px"></div>
-          <div class="ws-row"><label>Max steps</label><input id="agent-max-steps" type="number" min="1" max="50" value="25" style="width:80px"></div>
-          <div class="ws-row" style="align-items:flex-start"><label>Task</label><textarea id="agent-task" rows="4" placeholder="Describe the task, e.g. 'Read main.py, find the bug causing the crash, fix it, and run the tests.'" style="min-height:80px;resize:vertical"></textarea></div>
-          <div class="ws-row" style="margin-top:8px"><button id="agent-run">Run Agent</button> <button id="agent-stop" class="secondary" disabled>Stop</button></div>
+          <div class="field"><label>Model</label><select id="agent-model"></select></div>
+          <div class="field"><label>Workspace</label><input id="agent-workspace" placeholder="C:\projects\my-app"></div>
+          <div class="field"><label>Max steps</label><input id="agent-max-steps" type="number" min="1" max="50" value="25"></div>
+          <div class="field"><label>Task</label><textarea id="agent-task" placeholder="Describe the task, e.g. 'Read main.py, find the bug causing the crash, fix it, and run the tests.'"></textarea></div>
+          <div class="btn-row"><button id="agent-run">▶ Run Agent</button><button id="agent-stop" class="secondary" disabled>Stop</button></div>
         </div>
       </div>
-      <div class="agent-trace" id="agent-trace">
-        <div style="color:var(--muted);text-align:center;padding:40px 20px">
-          Configure a workspace and task, then click Run Agent.
-          The agent will autonomously explore files, write code, and run commands to complete the task.
+      <div class="agent-main">
+        <div class="agent-status" id="agent-status" style="display:none">
+          <span class="dot" id="agent-status-dot"></span>
+          <span id="agent-status-text"></span>
+          <span class="meta" id="agent-status-meta"></span>
+        </div>
+        <div class="agent-trace" id="agent-trace">
+          <div id="agent-steps">
+            <div class="agent-placeholder">
+              配置好左侧参数后点击 <b>Run Agent</b>。<br>
+              Agent 会自主探索文件、编写代码、执行命令来完成任务，<br>
+              每一步的思考过程、执行步骤与观察结果都会实时展示在这里。
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -930,7 +967,87 @@ function deleteModel(name) {
 // ---------- agent ----------
 let agentRunId = null;
 let agentStreamDone = true;
-const agentTrace = document.getElementById('agent-trace');
+const agentTraceEl = document.getElementById('agent-trace');
+const agentStepsEl = document.getElementById('agent-steps');
+let agentCurCard = null;      // step card currently receiving sections
+let agentCurStep = null;      // step number of agentCurCard
+let agentStepCount = 0;       // steps that performed a tool call
+let agentTotalSteps = 0;
+let agentRunning = false;
+let agentTimer = null;
+let agentStartTime = null;
+
+function agentScroll() {
+  requestAnimationFrame(() => { agentTraceEl.scrollTop = agentTraceEl.scrollHeight; });
+}
+
+function agentSetStatus(state, text) {
+  const bar = document.getElementById('agent-status');
+  bar.style.display = 'flex';
+  document.getElementById('agent-status-dot').className = 'dot ' + state;
+  document.getElementById('agent-status-text').textContent = text;
+}
+
+function agentSetMeta(text) {
+  document.getElementById('agent-status-meta').textContent = text || '';
+}
+
+function agentStartTimer() {
+  agentStartTime = Date.now();
+  if (agentTimer) clearInterval(agentTimer);
+  agentTimer = setInterval(() => {
+    if (!agentRunning) return;
+    const s = Math.floor((Date.now() - agentStartTime) / 1000);
+    const mm = String(Math.floor(s / 60)).padStart(2, '0');
+    const ss = String(s % 60).padStart(2, '0');
+    agentSetMeta(`step ${agentStepCount}/${agentTotalSteps || '?'} · ${mm}:${ss}`);
+  }, 1000);
+}
+
+function agentStopTimer() {
+  if (agentTimer) { clearInterval(agentTimer); agentTimer = null; }
+}
+
+function agentFinishRun(text, state) {
+  agentRunning = false;
+  agentStopTimer();
+  agentSetStatus(state, text);
+}
+
+function agentNewStepCard(step) {
+  const card = document.createElement('div');
+  card.className = 'step-card';
+  card.innerHTML = `<div class="step-head"><span class="step-badge">Step ${esc(String(step))}</span>` +
+    `<span class="tool-name"></span><span class="step-state"></span></div>`;
+  agentStepsEl.appendChild(card);
+  agentScroll();
+  return card;
+}
+
+function agentEnsureCard(step) {
+  if (!agentCurCard || agentCurStep !== step) {
+    agentCurCard = agentNewStepCard(step);
+    agentCurStep = step;
+  }
+  return agentCurCard;
+}
+
+function agentAddSection(card, icon, label, bodyClass, text, collapsed) {
+  const sec = document.createElement('div');
+  sec.className = 'sec' + (collapsed ? ' collapsed' : '');
+  const toggle = document.createElement('div');
+  toggle.className = 'sec-toggle';
+  toggle.innerHTML = `<span class="chev">▼</span><span>${icon} ${esc(label)}</span>`;
+  const body = document.createElement('div');
+  body.className = 'sec-body ' + bodyClass;
+  body.textContent = text;
+  toggle.onclick = () => sec.classList.toggle('collapsed');
+  sec.appendChild(toggle);
+  sec.appendChild(body);
+  card.appendChild(sec);
+  agentScroll();
+  return sec;
+}
 
 document.getElementById('agent-run').onclick = function() {
   if (!agentStreamDone) return;
@@ -941,7 +1058,14 @@ document.getElementById('agent-run').onclick = function() {
   if (!model) { alert('Select a model'); return; }
   if (!workspace) { alert('Enter workspace directory'); return; }
   if (!task) { alert('Enter a task description'); return; }
-  agentTrace.innerHTML = '';
+  agentStepsEl.innerHTML = '';
+  agentCurCard = null;
+  agentCurStep = null;
+  agentStepCount = 0;
+  agentRunning = true;
+  agentSetStatus('running', 'Agent 运行中…');
+  agentSetMeta('');
+  agentStartTimer();
   this.disabled = true;
   document.getElementById('agent-stop').disabled = false;
   agentStreamDone = false;
@@ -960,6 +1084,7 @@ document.getElementById('agent-run').onclick = function() {
       reader.read().then(({done, value}) => {
         if (done) {
           agentStreamDone = true;
+          if (agentRunning) agentFinishRun('已结束', 'done');
           document.getElementById('agent-run').disabled = false;
           document.getElementById('agent-stop').disabled = true;
           return;
@@ -972,6 +1097,7 @@ document.getElementById('agent-run').onclick = function() {
           const payload = line.slice(6);
           if (payload === '[DONE]') {
             agentStreamDone = true;
+            if (agentRunning) agentFinishRun('已结束', 'done');
             document.getElementById('agent-run').disabled = false;
             document.getElementById('agent-stop').disabled = true;
             return;
@@ -989,6 +1115,7 @@ document.getElementById('agent-run').onclick = function() {
   }).catch(err => {
     appendAgentError('Request failed: ' + err);
     agentStreamDone = true;
+    if (agentRunning) agentFinishRun('连接失败', 'error');
     document.getElementById('agent-run').disabled = false;
     document.getElementById('agent-stop').disabled = true;
   });
@@ -1000,53 +1127,83 @@ document.getElementById('agent-stop').onclick = function() {
 };
 
 function renderAgentEvent(evt) {
-  const step = evt.step || '';
-  const stepDiv = document.createElement('div');
-  stepDiv.className = 'agent-step';
-  let html = '';
   switch (evt.type) {
-    case 'start':
-      html = `<div class="step-head">Start</div>
-        <div>Workspace: <b>${esc(evt.workspace)}</b></div>
-        <div>Task: ${esc(evt.task)}</div>
-        <div>Max steps: ${evt.max_steps}</div>`;
+    case 'start': {
+      agentTotalSteps = evt.max_steps || 0;
+      const d = document.createElement('div');
+      d.className = 'step-card';
+      d.innerHTML = `<div class="step-head"><span class="step-badge">任务</span>` +
+        `<span class="step-state">max ${esc(String(evt.max_steps))} steps</span></div>` +
+        `<div class="sec"><div class="sec-toggle" style="cursor:default"><span>📋 任务描述</span></div><div class="sec-body"></div></div>` +
+        `<div class="sec"><div class="sec-toggle" style="cursor:default"><span>📁 工作区</span></div><div class="sec-body"></div></div>`;
+      const bodies = d.querySelectorAll('.sec-body');
+      bodies[0].textContent = evt.task || '';
+      bodies[1].textContent = evt.workspace || '';
+      agentStepsEl.appendChild(d);
+      agentScroll();
       break;
-    case 'thought':
-      html = `<div class="step-head">Step ${step} — Thought</div>
-        <div class="thought">${esc(evt.text)}</div>`;
+    }
+    case 'thought': {
+      const card = agentEnsureCard(evt.step);
+      agentAddSection(card, '🧠', '思考过程', 'thought', evt.text || '(空)');
       break;
-    case 'tool_call':
-      html = `<div class="step-head">Step ${step} — Action</div>
-        <div class="tool-call"><span class="tname">${esc(evt.tool)}</span>(${esc(JSON.stringify(evt.args).slice(0, 200))})</div>`;
+    }
+    case 'tool_call': {
+      const card = agentEnsureCard(evt.step);
+      card.querySelector('.tool-name').textContent = evt.tool || '';
+      agentAddSection(card, '⚡', '执行步骤 · ' + (evt.tool || ''), 'args',
+                      JSON.stringify(evt.args || {}, null, 2));
+      agentStepCount = evt.step;
       break;
-    case 'tool_result':
-      html = `<div class="step-head">Step ${step} — Observation</div>
-        <div class="tool-result">${esc(evt.result)}</div>`;
+    }
+    case 'tool_result': {
+      const card = agentEnsureCard(evt.step);
+      const result = evt.result || '';
+      const long = result.length > 600;
+      agentAddSection(card, '👁', '观察结果' + (long ? `（${result.length} 字符，点击展开）` : ''),
+                      'obs', result, long);
+      card.querySelector('.step-state').textContent = '✓';
       break;
-    case 'error':
-      html = `<div class="step-head">Step ${step} — Error</div>
-        <div class="error">${esc(evt.error)}</div>`;
+    }
+    case 'error': {
+      const card = agentEnsureCard(evt.step);
+      agentAddSection(card, '❌', '出错', 'errtext', evt.error || '');
       break;
-    case 'finish':
-      html = `<div class="step-head">Step ${step} — Finished</div>
-        <div class="finish">${esc(evt.summary)}</div>`;
+    }
+    case 'finish': {
+      agentRunning = false;
+      agentStopTimer();
+      agentSetStatus('done', '✅ 任务完成');
+      agentSetMeta(`共 ${agentStepCount} 步`);
+      const d = document.createElement('div');
+      d.className = 'finish-card';
+      d.innerHTML = `<div class="fh">✅ 任务完成 · Step ${esc(String(evt.step || ''))}</div><div class="fb"></div>`;
+      d.querySelector('.fb').textContent = evt.summary || '';
+      agentStepsEl.appendChild(d);
+      agentScroll();
       break;
-    case 'end':
-      html = `<div class="step-head">End</div><div>${esc(evt.reason)}</div>`;
+    }
+    case 'end': {
+      if (agentRunning) {
+        const stopped = String(evt.reason || '').includes('stopped');
+        agentFinishRun(stopped ? '⏹ 已停止' : '已结束', stopped ? 'error' : 'done');
+        agentSetMeta(evt.reason || '');
+      }
       break;
-    default:
-      html = `<div class="step-head">${esc(evt.type)}</div><div>${esc(JSON.stringify(evt))}</div>`;
+    }
+    default: {
+      const card = agentCurCard || agentNewStepCard(evt.step || '?');
+      agentAddSection(card, '•', evt.type || 'event', 'obs', JSON.stringify(evt));
+    }
   }
-  stepDiv.innerHTML = html;
-  agentTrace.appendChild(stepDiv);
-  agentTrace.scrollTop = agentTrace.scrollHeight;
 }
 
 function appendAgentError(msg) {
   const d = document.createElement('div');
-  d.className = 'agent-step';
-  d.innerHTML = `<div class="step-head">Error</div><div class="error">${esc(msg)}</div>`;
-  agentTrace.appendChild(d);
+  d.className = 'agent-err-card';
+  d.textContent = '❌ ' + msg;
+  agentStepsEl.appendChild(d);
+  agentScroll();
 }
 
 // ---------- playground: conversation management ----------

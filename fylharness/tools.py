@@ -32,13 +32,19 @@ class ToolError(Exception):
 
 # ----------------------------------------------------------------- registry
 TOOL_REGISTRY: Dict[str, Callable[[Dict[str, Any], Path], str]] = {}
+TOOL_ARGS: Dict[str, str] = {}
 
 
-def register_tool(name: str) -> Callable[[Callable], Callable]:
-    """Decorator: register a tool function under ``name``."""
+def register_tool(name: str, args: str = "") -> Callable[[Callable], Callable]:
+    """Decorator: register a tool function under ``name``.
+
+    ``args`` is a short hint of the expected argument keys (e.g. ``"path, content"``)
+    surfaced in the system prompt so the model emits correct argument names.
+    """
 
     def _wrap(fn: Callable[[Dict[str, Any], Path], str]) -> Callable:
         TOOL_REGISTRY[name] = fn
+        TOOL_ARGS[name] = args
         return fn
 
     return _wrap
@@ -48,7 +54,11 @@ def list_tools() -> List[Dict[str, str]]:
     """Return a JSON-serialisable tool catalogue for the system prompt."""
 
     return [
-        {"name": name, "description": (fn.__doc__ or "").strip().splitlines()[0] if fn.__doc__ else ""}
+        {
+            "name": name,
+            "args": TOOL_ARGS.get(name, ""),
+            "description": (fn.__doc__ or "").strip().splitlines()[0] if fn.__doc__ else "",
+        }
         for name, fn in sorted(TOOL_REGISTRY.items())
     ]
 
@@ -81,7 +91,7 @@ def _safe_path(workspace: Path, rel: str) -> Path:
 
 
 # ------------------------------------------------------------------ tools
-@register_tool("list_dir")
+@register_tool("list_dir", args="path")
 def _list_dir(args: Dict[str, Any], workspace: Path) -> str:
     """List entries in a directory (default: workspace root)."""
 
@@ -99,7 +109,7 @@ def _list_dir(args: Dict[str, Any], workspace: Path) -> str:
     return f"Listing {rel or '.'}:\n" + "\n".join(entries) if entries else f"{rel or '.'} is empty."
 
 
-@register_tool("read_file")
+@register_tool("read_file", args="path")
 def _read_file(args: Dict[str, Any], workspace: Path) -> str:
     """Read a text file with line numbers (truncated to keep prompts bounded)."""
 
@@ -120,7 +130,7 @@ def _read_file(args: Dict[str, Any], workspace: Path) -> str:
     return numbered + truncated
 
 
-@register_tool("write_file")
+@register_tool("write_file", args="path, content")
 def _write_file(args: Dict[str, Any], workspace: Path) -> str:
     """Create or overwrite a file with the given content."""
 
@@ -134,7 +144,7 @@ def _write_file(args: Dict[str, Any], workspace: Path) -> str:
     return f"Wrote {len(content)} bytes to {rel}"
 
 
-@register_tool("edit_file")
+@register_tool("edit_file", args="path, old, new")
 def _edit_file(args: Dict[str, Any], workspace: Path) -> str:
     """Replace all occurrences of ``old`` with ``new`` in a file."""
 
@@ -153,7 +163,7 @@ def _edit_file(args: Dict[str, Any], workspace: Path) -> str:
     return f"Replaced {count} occurrence(s) in {rel}"
 
 
-@register_tool("run_command")
+@register_tool("run_command", args="command")
 def _run_command(args: Dict[str, Any], workspace: Path) -> str:
     """Run a shell command in the workspace directory (Windows-safe, no fork).
 
@@ -186,7 +196,7 @@ def _run_command(args: Dict[str, Any], workspace: Path) -> str:
     return f"[exit {proc.returncode}]\n{out}"
 
 
-@register_tool("finish")
+@register_tool("finish", args="summary")
 def _finish(args: Dict[str, Any], workspace: Path) -> str:
     """Signal that the task is complete (no more tool calls needed)."""
 

@@ -61,7 +61,7 @@ Rules:
 
 def _build_system_prompt(workspace: Path) -> str:
     catalog = "\n".join(
-        f"- {t['name']}: {t['description']}" for t in list_tools()
+        f"- {t['name']}({t.get('args', '')}): {t['description']}" for t in list_tools()
     )
     return _SYSTEM_TEMPLATE.format(workspace=workspace, tool_catalog=catalog)
 
