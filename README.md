@@ -747,7 +747,7 @@ A: `serve` 启动完整的交互式应用（聊天 Playground + 在线评估 + �
 A: 能。把 `config_mock.yaml` 换成指向真实端点的配置（`examples/config_openai.yaml` 有模板），`fylharness serve examples/config_openai.yaml` 即可在浏览器里和真实模型对话。
 
 **Q: Agent Tab 的模型为什么一直报 "Could not parse tool call"？**  
-A: Mock 模型只能输出对话文本，不会输出 JSON 工具调用，所以 agent 循环解析失败。Agent 需要能遵循 JSON 指令的真实模型（DeepSeek-V3/R1、GPT-4o、Qwen2.5-Coder、Claude 等）。配置真实端点后在 Agent Tab 选对应模型即可。
+A: 两种常见原因。一是 Mock 模型只能输出对话文本，不会输出 JSON 工具调用，agent 循环解析失败——Agent 需要能遵循 JSON 指令的真实模型（DeepSeek-V3/R1、GPT-4o、Qwen2.5-Coder、Claude 等），配置真实端点后在 Agent Tab 选对应模型。二是**推理模型（glm-4.7-flash、DeepSeek-R1 等）的思考 token 也计入 max_tokens**，预算被思考耗尽时返回的 content 为空、解析不到工具调用——把该模型的 max_tokens 调大到 4096 以上即可。新版错误信息会附带原始响应片段，可直接在轨迹里看到具体原因。
 
 **Q: Agent 会不会越界删除工作区外的文件？**  
 A: 不会。所有路径工具强制限制在指定的工作区目录内，绝对路径和 `..` 越界会被拒绝。`run_command` 也在工作区目录内执行，并屏蔽危险命令、60 秒超时。

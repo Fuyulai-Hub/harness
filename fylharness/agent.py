@@ -150,8 +150,15 @@ def run_agent(
                            "Please respond with ONLY a JSON object containing "
                            "'thought', 'tool' and 'args'.",
             })
+            hint = ""
+            if not raw.strip():
+                hint = (" Model returned empty content. Reasoning models (glm-4.7-flash,"
+                        " DeepSeek-R1, ...) spend max_tokens on thinking first -- raise"
+                        " max_tokens (4096+) and retry.")
+            elif resp.finish_reason == "length":
+                hint = " Output hit the max_tokens limit before any JSON appeared; raise max_tokens."
             yield {"type": "error", "step": step,
-                   "error": "Could not parse tool call; asking model to retry."}
+                   "error": f"Could not parse tool call.{hint} Raw response: {raw[:200]!r}"}
             continue
 
         yield {"type": "tool_call", "step": step, "tool": tool, "args": args}
