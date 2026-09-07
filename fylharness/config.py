@@ -109,12 +109,30 @@ class RunConfig:
 
 
 @dataclass
+class AgentConfig:
+    """Options for the interactive ReAct agent (``fylharness serve`` Agent tab).
+
+    ``planning`` emits an explicit multi-step plan before executing the task;
+    ``reflection`` pauses for a self-review turn every ``reflect_every`` steps
+    (or after repeated errors) and feeds the conclusions back into the loop;
+    ``max_history_messages`` triggers memory compression once the message
+    history grows beyond this size.
+    """
+
+    planning: bool = False
+    reflection: bool = False
+    reflect_every: int = 8
+    max_history_messages: int = 40
+
+
+@dataclass
 class HarnessConfig:
     """Top-level configuration object consumed by :class:`Runner`."""
 
     models: List[ModelConfig] = field(default_factory=list)
     tasks: List[TaskConfig] = field(default_factory=list)
     run: RunConfig = field(default_factory=RunConfig)
+    agent: AgentConfig = field(default_factory=AgentConfig)
     # Path of the file this config was loaded from; used for resolving relative paths.
     source: Optional[str] = None
 
@@ -168,7 +186,14 @@ class HarnessConfig:
             seed=run_raw.get("seed", 42),
             tags=run_raw.get("tags", []),
         )
-        return cls(models=models, tasks=tasks, run=run)
+        agent_raw = raw.get("agent", {})
+        agent = AgentConfig(
+            planning=bool(agent_raw.get("planning", False)),
+            reflection=bool(agent_raw.get("reflection", False)),
+            reflect_every=int(agent_raw.get("reflect_every", 8)),
+            max_history_messages=int(agent_raw.get("max_history_messages", 40)),
+        )
+        return cls(models=models, tasks=tasks, run=run, agent=agent)
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

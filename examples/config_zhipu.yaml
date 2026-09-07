@@ -25,6 +25,14 @@ run:
   seed: 42
   tags: [zhipu, glm]
 
+# Interactive agent loop options (Agent tab).  Each can also be toggled
+# per-run from the UI checkboxes.
+agent:
+  planning: true        # emit an explicit step-by-step plan before executing
+  reflection: true      # periodic self-review fed back into the loop
+  reflect_every: 4      # review every N steps (or after 3 consecutive errors)
+  max_history_messages: 40  # compress history beyond this size
+
 models:
   # Free, coding/agentic-enhanced; 200K context. Recommended for the Agent tab.
   # NOTE: it is a reasoning model -- thinking tokens count toward max_tokens,

@@ -365,6 +365,10 @@ class HarnessServer:
             workspace = body.get("workspace", "")
             task = body.get("task", "")
             max_steps = int(body.get("max_steps", 25))
+            agent_cfg = self.config.agent
+            planning = bool(body.get("planning", agent_cfg.planning))
+            reflection = bool(body.get("reflection", agent_cfg.reflection))
+            reflect_every = int(body.get("reflect_every", agent_cfg.reflect_every))
             overrides = {}
             for k in ("temperature", "max_tokens", "reasoning_effort"):
                 v = body.get(k)
@@ -396,7 +400,11 @@ class HarnessServer:
                 try:
                     for event in run_agent(model, task, ws,
                                             max_steps=max_steps,
-                                            overrides=overrides):
+                                            overrides=overrides,
+                                            planning=planning,
+                                            reflection=reflection,
+                                            reflect_every=reflect_every,
+                                            max_history_messages=agent_cfg.max_history_messages):
                         if self._agent_stop.get(run_id):
                             yield f"data: {json.dumps({'type': 'end', 'reason': 'stopped by user'}, ensure_ascii=False)}\n\n"
                             break
@@ -431,6 +439,17 @@ class HarnessServer:
         def api_agent_stop(run_id: str):
             self._agent_stop[run_id] = True
             return jsonify({"ok": True})
+
+        @app.route("/api/agent/settings")
+        def api_agent_settings():
+            """Expose the agent loop defaults so the UI checkboxes can mirror them."""
+            a = self.config.agent
+            return jsonify({
+                "planning": a.planning,
+                "reflection": a.reflection,
+                "reflect_every": a.reflect_every,
+                "max_history_messages": a.max_history_messages,
+            })
 
         @app.route("/api/agent/runs")
         def api_agent_runs():
@@ -670,6 +689,8 @@ _INDEX_HTML = r"""<!DOCTYPE html>
   .composer-row{display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap}
   .composer-row select,.composer-row input{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 9px;color:var(--text);font-size:12px;outline:none}
   .composer-row select:focus,.composer-row input:focus{border-color:var(--accent)}
+  .composer-row .ck{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none}
+  .composer-row .ck input{accent-color:var(--accent);cursor:pointer}
   .composer-row #agent-max-steps{width:64px}
   .composer-row #agent-run{margin-left:auto}
   .agent-placeholder{color:var(--muted);text-align:center;padding:60px 24px;line-height:2}
@@ -894,6 +915,8 @@ _INDEX_HTML = r"""<!DOCTYPE html>
               <option value="medium">推理强度：中</option>
               <option value="high">推理强度：高</option>
             </select>
+            <label class="ck" title="运行前先生成执行计划（Plan-and-Execute）"><input type="checkbox" id="agent-planning"> 规划</label>
+            <label class="ck" title="定期自我复盘并将结论注入后续步骤（Reflection）"><input type="checkbox" id="agent-reflection"> 反思</label>
             <input id="agent-max-steps" type="number" min="1" max="50" value="25" title="最大步数">
             <button id="agent-run">▶ 运行</button>
             <button id="agent-stop" class="secondary" disabled>停止</button>
@@ -1308,6 +1331,8 @@ document.getElementById('agent-run').onclick = function() {
 
   const body = { model, workspace, task, max_steps: maxSteps };
   if (reasoning) body.reasoning_effort = reasoning;
+  body.planning = document.getElementById('agent-planning').checked;
+  body.reflection = document.getElementById('agent-reflection').checked;
   fetch('/api/agent', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -1442,6 +1467,26 @@ function renderAgentEvent(evt) {
       agentScroll();
       break;
     }
+    case 'plan': {
+      const d = document.createElement('div');
+      d.className = 'step-card';
+      d.innerHTML = `<div class="step-head"><span class="step-badge">计划</span>` +
+        `<span class="step-state">${(evt.plan || []).length} 步</span></div>` +
+        `<div class="sec"><div class="sec-toggle" style="cursor:default"><span>🗺️ 执行计划</span></div><div class="sec-body"></div></div>`;
+      d.querySelector('.sec-body').textContent =
+        (evt.plan && evt.plan.length) ? evt.plan.join('\n') : '（模型未返回有效计划，直接按 ReAct 执行）';
+      d.querySelector('.step-head').onclick = () => d.classList.toggle('collapsed');
+      agentStepsEl.appendChild(d);
+      agentScroll();
+      break;
+    }
+    case 'reflection': {
+      const card = agentEnsureCard(evt.step);
+      agentAddSection(card, '🪞', '反思', 'thought', evt.text || '');
+      break;
+    }
+    case 'compress':
+      break;  // silent bookkeeping; history stays bounded
     case 'thought': {
       agentThoughtCount++;
       const card = agentEnsureCard(evt.step);
@@ -1518,6 +1563,10 @@ function agentStopTimer() {
 agentLoadWorkspaces();
 agentViewNew();
 agentLoadHistory();
+fetch('/api/agent/settings').then(r => r.json()).then(s => {
+  document.getElementById('agent-planning').checked = !!s.planning;
+  document.getElementById('agent-reflection').checked = !!s.reflection;
+}).catch(() => {});
 
 function appendAgentError(msg) {
   const d = document.createElement('div');
