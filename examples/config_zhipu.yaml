@@ -28,7 +28,7 @@ run:
 models:
   # Free, coding/agentic-enhanced; 200K context. Recommended for the Agent tab.
   # NOTE: it is a reasoning model -- thinking tokens count toward max_tokens,
-  # so keep the budget generous (4096+) or content may come back empty.
+  # so keep the budget generous. Set to the model's 128K output ceiling.
   - name: glm-4.7-flash
     type: openai
     base_url: https://open.bigmodel.cn/api/paas/v4
@@ -36,7 +36,7 @@ models:
     api_key_env: ZHIPU_API_KEY         # fallback env var if the line above is empty
     model: glm-4.7-flash
     chat: true
-    max_tokens: 8192
+    max_tokens: 131072
     temperature: 0.0
     timeout: 120
     max_retries: 5
