@@ -11,7 +11,7 @@ FylHarness 借鉴 [DeepSeek-LLM](https://github.com/deepseek-ai/DeepSeek-LLM) �
 - **四种内置指标** + 自定义指标注册装饰器
 - **JSON / CSV / Markdown** 三份报告自动生成
 - **Web 仪表盘**：运行后自动打开浏览器，像 DeepSeek harness 一样可视化查看结果
-- **交互式 Harness**：`fylharness serve` 启动带对话界面的 Web 应用——聊天 Playground + 在线评估 + 结果查看 + Agent 工作区，四合一
+- **交互式 Harness**：`fylharness serve` 启动带对话界面的 Web 应用——聊天 Playground + Workspace 模型管理 + Agent 工作区 + 在线评估 + 结果查看，五合一
 - **Agent 工作区**：指定本地项目目录，用自然语言描述任务，模型像 agent 一样自主读文件、写代码、跑命令完成复杂任务
 
 ---
@@ -554,7 +554,7 @@ python examples/run_demo.py        # 端到端离线跑通
 
 ## 8. 交互式 Harness（对话界面）
 
-`fylharness serve` 启动一个 Flask Web 应用，提供**真实的对话界面**——像 DeepSeek 网页一样在浏览器里与模型对话、交互式跑评估、查看结果，三合一。
+`fylharness serve` 启动一个 Flask Web 应用，提供**真实的对话界面**——像 DeepSeek 网页一样在浏览器里与模型对话、管理模型配置、Agent 自主任务、交互式跑评估、查看结果，五合一。
 
 ### 启动
 
@@ -564,17 +564,17 @@ fylharness serve examples/config_openai.yaml --port 8080       # 对接真实模
 fylharness serve config.yaml --no-browser                      # 不自动开浏览器（远程场景）
 ```
 
-启动后浏览器自动打开 `http://127.0.0.1:5000/`，页面有三个 Tab：
+启动后浏览器自动打开 `http://127.0.0.1:5000/`，页面有五个 Tab：Playground（对话）、Workspace（模型管理）、Agent（自主任务）、Evaluate（在线评估）、Results（结果查看）。
 
 ### 8.1 Playground（对话界面）
 
 像 DeepSeek / ChatGPT 一样的聊天界面：
 
-- 顶部下拉选择配置里定义的任意模型
-- 输入框打字，Enter 发送（Shift+Enter 换行）
+- 左侧边栏选择配置里定义的任意模型，可设置 Reasoning Effort / Temperature / Max Tokens
+- 打开页面即可直接输入，Enter 发送（Shift+Enter 换行）；首条消息自动创建会话，无需先点 "+ New Conversation"
+- 左侧会话列表支持新建 / 切换 / 删除（✕）会话，会话标题自动取首条消息；会话保存在浏览器内存中，刷新页面后清空
 - 模型响应**逐字流式输出**（Server-Sent Events），不是等满才显示
 - 支持多轮对话（完整 message history 发给模型）
-- Clear 按钮清空对话
 
 技术实现：`/api/chat` POST 端点用 Flask 的 `stream_with_context` 逐 chunk 返回 SSE 数据流。OpenAI 兼容模型走真正的 `stream: true` 协议（每 token 一个 delta）；mock 模型逐词模拟流式。
 
