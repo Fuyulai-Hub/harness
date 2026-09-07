@@ -679,7 +679,7 @@ _INDEX_HTML = r"""<!DOCTYPE html>
       <div class="chat-sidebar">
         <button class="new-chat" id="new-conversation">+ New Conversation</button>
         <div class="conv-list" id="conv-list">
-          <div class="conv-empty">No conversations yet.<br>Click above to start.</div>
+          <div class="conv-empty">No conversations yet.<br>Type below to start.</div>
         </div>
         <div class="sidebar-model-panel">
           <div class="sidebar-label">Model</div>
@@ -700,12 +700,12 @@ _INDEX_HTML = r"""<!DOCTYPE html>
       <div class="chat-main">
         <div class="chat-messages" id="chat-messages">
           <div style="color:var(--muted);text-align:center;padding:40px 20px" id="chat-placeholder">
-            Click "+ New Conversation" to start chatting. Responses stream in real time.
+            Type a message below to start chatting. Responses stream in real time.
           </div>
         </div>
         <div class="chat-input">
-          <textarea id="chat-input" placeholder="Type a message... (Enter to send, Shift+Enter for newline)" rows="1" disabled></textarea>
-          <button id="chat-send" disabled>Send</button>
+          <textarea id="chat-input" placeholder="Type a message... (Enter to send, Shift+Enter for newline)" rows="1"></textarea>
+          <button id="chat-send">Send</button>
         </div>
       </div>
     </div>
@@ -1070,7 +1070,7 @@ function scrollChatToBottom() {
 
 function renderConvList() {
   if (!conversations.length) {
-    convList.innerHTML = '<div class="conv-empty">No conversations yet.<br>Click above to start.</div>';
+    convList.innerHTML = '<div class="conv-empty">No conversations yet.<br>Type below to start.</div>';
     return;
   }
   convList.innerHTML = '';
@@ -1143,8 +1143,9 @@ function deleteConversation(id) {
     if (activeConvId) {
       renderMessages(conversations.find(c => c.id === activeConvId));
     } else {
-      chatMessages.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px 20px" id="chat-placeholder">Click "+ New Conversation" to start chatting. Responses stream in real time.</div>';
-      enableInput(false);
+      chatMessages.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px 20px" id="chat-placeholder">Type a message below to start chatting. Responses stream in real time.</div>';
+      enableInput(true);
+      chatInput.focus();
     }
   }
   renderConvList();
@@ -1391,6 +1392,10 @@ function flatten(m) {
 }
 function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function short(s, n) { const t = String(s || ''); return t.length > n ? t.slice(0, n) + '…' : t; }
+
+// ---------- init: input is usable immediately; the first message creates the conversation ----------
+enableInput(true);
+chatInput.focus();
 </script>
 </body>
 </html>
