@@ -176,8 +176,7 @@ def run_agent(
 
         if tool == "finish":
             yield {"type": "finish", "step": step, "summary": result}
+            yield {"type": "end", "step": step, "reason": "model called finish; task complete"}
             break
     else:
         yield {"type": "end", "step": max_steps, "reason": "step budget exhausted"}
-
-    yield {"type": "end", "step": step, "reason": "loop terminated"}
