@@ -1084,6 +1084,7 @@ let agentTimer = null;
 let agentStartTime = null;
 let agentTasks = {};          // runId -> {id,title,workspace,model,status,created,events}
 let agentWorkspaces = [];     // saved workspace directories
+let agentPendingTitle = '';   // task text captured at submit (textarea is cleared)
 
 function agentScroll() {
   requestAnimationFrame(() => { agentTraceEl.scrollTop = agentTraceEl.scrollHeight; });
@@ -1101,6 +1102,14 @@ function agentSetStatusHidden() {
 
 function agentSetMeta(text) {
   document.getElementById('agent-status-meta').textContent = text || '';
+}
+
+function agentSetComposerEnabled(enabled) {
+  ['agent-model', 'agent-reasoning', 'agent-max-steps', 'agent-planning', 'agent-reflection']
+    .forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = !enabled;
+    });
 }
 
 function agentClearRender() {
@@ -1315,8 +1324,14 @@ document.getElementById('agent-run').onclick = function() {
   agentRunning = true;
   agentStreamDone = false;
   agentRunId = null;
+  agentPendingTitle = task.slice(0, 50);
   this.disabled = true;
   document.getElementById('agent-stop').disabled = false;
+  agentSetComposerEnabled(false);
+  // The task moves to the top of the window; the composer is cleared.
+  document.getElementById('agent-task').value = '';
+  document.getElementById('agent-tb-title').textContent = agentPendingTitle;
+  document.getElementById('agent-tb-sub').textContent = workspace + ' · ' + model;
   agentSetStatus('running', 'Agent 运行中…');
   agentSetMeta('');
   agentStartTime = Date.now();
@@ -1352,6 +1367,7 @@ document.getElementById('agent-run').onclick = function() {
           }
           document.getElementById('agent-run').disabled = false;
           document.getElementById('agent-stop').disabled = true;
+          agentSetComposerEnabled(true);
           agentRenderTaskList();
           return;
         }
@@ -1370,6 +1386,7 @@ document.getElementById('agent-run').onclick = function() {
             }
             document.getElementById('agent-run').disabled = false;
             document.getElementById('agent-stop').disabled = true;
+            agentSetComposerEnabled(true);
             agentRenderTaskList();
             return;
           }
@@ -1393,6 +1410,7 @@ document.getElementById('agent-run').onclick = function() {
     if (agentRunId && agentTasks[agentRunId]) agentTasks[agentRunId].status = 'error';
     document.getElementById('agent-run').disabled = false;
     document.getElementById('agent-stop').disabled = true;
+    agentSetComposerEnabled(true);
     agentRenderTaskList();
   });
 };
@@ -1404,7 +1422,7 @@ function agentHandleStreamEvent(evt) {
     agentRunId = evt.run_id;
     agentTasks[agentRunId] = {
       id: agentRunId,
-      title: (document.getElementById('agent-task').value.trim() || 'Agent 任务').slice(0, 50),
+      title: agentPendingTitle || 'Agent 任务',
       workspace: document.getElementById('agent-workspace-select').value,
       model: document.getElementById('agent-model').value,
       status: 'running',
@@ -1555,6 +1573,12 @@ document.getElementById('agent-expand-all').onclick = () => {
   agentStepsEl.style.display = '';
   agentStepsEl.querySelectorAll('.step-card').forEach(c => c.classList.remove('collapsed'));
 };
+document.getElementById('agent-task').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    if (agentStreamDone) document.getElementById('agent-run').click();
+  }
+});
 function agentStopTimer() {
   if (agentTimer) { clearInterval(agentTimer); agentTimer = null; }
 }
