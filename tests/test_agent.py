@@ -1,7 +1,25 @@
 """Unit tests for the agent loop helpers (plan parsing, history compression)."""
 
-from fylharness.agent import _parse_plan_lines, _compress_history
+from types import SimpleNamespace
+
+from fylharness.agent import _acc_model_stats, _new_agent_stats, _parse_plan_lines, _compress_history
 from fylharness.config import AgentConfig, HarnessConfig
+
+
+def test_acc_model_stats_accumulates():
+    stats = _new_agent_stats()
+    _acc_model_stats(stats, SimpleNamespace(latency_ms=120.0, prompt_tokens=100,
+                                            completion_tokens=50, cached_tokens=80,
+                                            reasoning_tokens=30))
+    _acc_model_stats(stats, SimpleNamespace(latency_ms=30.0, prompt_tokens=200,
+                                            completion_tokens=10, cached_tokens=None,
+                                            reasoning_tokens=None))
+    assert stats["llm_calls"] == 2
+    assert stats["llm_ms"] == 150.0
+    assert stats["prompt_tokens"] == 300
+    assert stats["completion_tokens"] == 60
+    assert stats["cached_tokens"] == 80      # None tolerated as 0
+    assert stats["reasoning_tokens"] == 30
 
 
 def test_parse_plan_lines_numbered_and_bulleted():

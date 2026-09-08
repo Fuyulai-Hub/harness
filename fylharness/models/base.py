@@ -24,6 +24,10 @@ class ModelResponse:
     text: str = ""
     prompt_tokens: int = 0
     completion_tokens: int = 0
+    # Provider-reported cache/reasoning sub-counters when available
+    # (e.g. ``usage.prompt_tokens_details.cached_tokens`` on OpenAI-compatible APIs).
+    cached_tokens: int = 0
+    reasoning_tokens: int = 0
     finish_reason: str = ""
     latency_ms: float = 0.0
     raw: Dict[str, Any] = field(default_factory=dict)

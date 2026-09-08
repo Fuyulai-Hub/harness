@@ -18,8 +18,9 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from pathlib import Path
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, Dict, Iterator, List, Optional
 
 from .models.base import Model
 from .tools import ToolError, list_tools, run_tool
@@ -145,6 +146,32 @@ def _compress_history(messages: List[Dict[str, Any]], keep_head: int = 2,
     return new_messages, len(middle)
 
 
+def _new_agent_stats() -> Dict[str, Any]:
+    """Fresh run-level statistics accumulator (token usage / timings / hits)."""
+
+    return {
+        "llm_calls": 0,
+        "llm_ms": 0.0,
+        "tool_calls": 0,
+        "tool_ms": 0.0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "cached_tokens": 0,
+        "reasoning_tokens": 0,
+    }
+
+
+def _acc_model_stats(stats: Dict[str, Any], resp) -> None:
+    """Accumulate one model response into the run-level statistics."""
+
+    stats["llm_calls"] += 1
+    stats["llm_ms"] += resp.latency_ms or 0.0
+    stats["prompt_tokens"] += resp.prompt_tokens or 0
+    stats["completion_tokens"] += resp.completion_tokens or 0
+    stats["cached_tokens"] += getattr(resp, "cached_tokens", 0) or 0
+    stats["reasoning_tokens"] += getattr(resp, "reasoning_tokens", 0) or 0
+
+
 def _parse_tool_call(text: str) -> Dict[str, Any]:
     """Extract the JSON tool call from the model's response.
 
@@ -191,6 +218,7 @@ def run_agent(
     ``{"type": "tool_result", "step": n, "result": "..."}``
     ``{"type": "reflection", "step": n, "text": "..."}``  -- self-review (reflection=True)
     ``{"type": "compress", "step": n, "dropped": k}``     -- history compression
+    ``{"type": "stats", "step": n, "stats": {...}}``      -- cumulative token/time counters
     ``{"type": "error", "step": n, "error": "..."}``
     ``{"type": "finish", "step": n, "summary": "..."}``
     ``{"type": "end", "step": n, "reason": "..."}``
@@ -204,6 +232,7 @@ def run_agent(
         {"role": "user", "content": task},
     ]
     ov = overrides or {}
+    stats = _new_agent_stats()
 
     yield {"type": "start", "workspace": str(workspace), "task": task, "max_steps": max_steps}
 
@@ -220,7 +249,9 @@ def run_agent(
             **ov,
         )
         plan_lines = _parse_plan_lines(plan_resp.text or "")
+        _acc_model_stats(stats, plan_resp)
         yield {"type": "plan", "step": 0, "plan": plan_lines}
+        yield {"type": "stats", "step": 0, "stats": dict(stats)}
         if plan_lines:
             messages.append({
                 "role": "user",
@@ -246,6 +277,7 @@ def run_agent(
         if resp.error:
             yield {"type": "error", "step": step, "error": resp.error}
             break
+        _acc_model_stats(stats, resp)
         raw = resp.text or ""
         call = _parse_tool_call(raw)
         thought = call.get("thought", "")
@@ -275,13 +307,15 @@ def run_agent(
             yield {"type": "error", "step": step,
                    "error": f"Could not parse tool call.{hint} Raw response: {raw[:200]!r}"}
             if reflection and errors_in_a_row >= 2:
-                yield from _maybe_reflect(model, task, plan_lines, messages, step, ov)
+                yield from _maybe_reflect(model, task, plan_lines, messages, step, ov, stats)
                 errors_in_a_row = 0
+                yield {"type": "stats", "step": step, "stats": dict(stats)}
             continue
 
         yield {"type": "tool_call", "step": step, "tool": tool, "args": args}
 
         # Execute the tool inside the workspace.
+        tool_t0 = time.perf_counter()
         try:
             result = run_tool(tool, args, workspace)
         except ToolError as exc:
@@ -289,6 +323,8 @@ def run_agent(
         except Exception as exc:  # pragma: no cover -- defensive
             log.exception("Tool %s raised", tool)
             result = f"[ERROR] {exc!s}"
+        stats["tool_ms"] += (time.perf_counter() - tool_t0) * 1000
+        stats["tool_calls"] += 1
 
         errors_in_a_row = errors_in_a_row + 1 if result.startswith("[ERROR]") else 0
 
@@ -300,23 +336,26 @@ def run_agent(
             "role": "user",
             "content": f"Tool `{tool}` returned:\n{result}",
         })
+        yield {"type": "stats", "step": step, "stats": dict(stats)}
 
         if tool == "finish":
             yield {"type": "finish", "step": step, "summary": result}
+            yield {"type": "stats", "step": step, "stats": dict(stats)}
             yield {"type": "end", "step": step, "reason": "model called finish; task complete"}
             break
 
         # ---- periodic self-review (reflection) -----------------------------
         if reflection and (step % max(reflect_every, 1) == 0 or errors_in_a_row >= 3):
-            yield from _maybe_reflect(model, task, plan_lines, messages, step, ov)
+            yield from _maybe_reflect(model, task, plan_lines, messages, step, ov, stats)
             errors_in_a_row = 0
+            yield {"type": "stats", "step": step, "stats": dict(stats)}
     else:
         yield {"type": "end", "step": max_steps, "reason": "step budget exhausted"}
 
 
 def _maybe_reflect(model: Model, task: str, plan_lines: List[str],
                    messages: List[Dict[str, Any]], step: int,
-                   overrides: Dict[str, Any]) -> Iterator[Dict[str, Any]]:
+                   overrides: Dict[str, Any], stats: Dict[str, Any]) -> Iterator[Dict[str, Any]]:
     """Run one self-review turn; yields a ``reflection`` event when produced.
 
     The conclusions are appended to ``messages`` so the next ReAct step
@@ -336,6 +375,7 @@ def _maybe_reflect(model: Model, task: str, plan_lines: List[str],
         ],
         **overrides,
     )
+    _acc_model_stats(stats, resp)
     text = (resp.text or "").strip()
     if resp.error or not text:
         return

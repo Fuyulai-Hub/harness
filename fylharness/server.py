@@ -683,6 +683,7 @@ _INDEX_HTML = r"""<!DOCTYPE html>
   .run-summary:hover{color:var(--text)}
   .run-summary .chev{font-size:9px;transition:transform .15s;display:inline-block}
   .run-summary.collapsed .chev{transform:rotate(-90deg)}
+  .agent-stats-bar{flex-shrink:0;font-size:12px;color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;padding:8px 14px;background:var(--panel);border:1px solid var(--border);border-radius:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .agent-composer{flex-shrink:0;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
   .agent-composer textarea{width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none;min-height:56px;resize:vertical}
   .agent-composer textarea:focus{border-color:var(--accent)}
@@ -905,6 +906,7 @@ _INDEX_HTML = r"""<!DOCTYPE html>
             </div>
           </div>
         </div>
+        <div class="agent-stats-bar" id="agent-stats-bar" style="display:none"></div>
         <div class="agent-composer">
           <textarea id="agent-task" placeholder="描述任务… 例如：阅读 note.txt 并完成其中的要求"></textarea>
           <div class="composer-row">
@@ -1122,6 +1124,7 @@ function agentClearRender() {
   agentRunSummaryEl.style.display = 'none';
   agentRunSummaryEl.classList.remove('collapsed');
   agentStepsEl.style.display = '';
+  document.getElementById('agent-stats-bar').style.display = 'none';
 }
 
 function agentShowPlaceholder() {
@@ -1467,8 +1470,37 @@ document.getElementById('agent-stop').onclick = function() {
   this.disabled = true;
 };
 
+function agentFmtTok(n) {
+  n = n || 0;
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+  return String(n);
+}
+
+function agentFmtMs(ms) {
+  ms = ms || 0;
+  const s = ms / 1000;
+  if (s >= 60) return Math.floor(s / 60) + '分' + Math.round(s % 60) + '秒';
+  return s.toFixed(1) + ' 秒';
+}
+
+function agentFormatStats(s) {
+  const hit = s.prompt_tokens ? Math.round(100 * (s.cached_tokens || 0) / s.prompt_tokens) + '%' : '—';
+  return `LLM ${agentFmtMs(s.llm_ms)}（${s.llm_calls} 次） · 工具 ${agentFmtMs(s.tool_ms)}（${s.tool_calls} 次） · ` +
+    `输入 ${agentFmtTok(s.prompt_tokens)} tok · 输出 ${agentFmtTok(s.completion_tokens)} tok · ` +
+    `思考 ${agentFmtTok(s.reasoning_tokens)} tok · 缓存命中 ${hit}`;
+}
+
 function renderAgentEvent(evt) {
   switch (evt.type) {
+    case 'stats': {
+      const bar = document.getElementById('agent-stats-bar');
+      if (evt.stats && (evt.stats.llm_calls || evt.stats.tool_calls)) {
+        bar.style.display = 'block';
+        bar.textContent = agentFormatStats(evt.stats);
+      }
+      break;
+    }
     case 'start': {
       agentTotalSteps = evt.max_steps || 0;
       const d = document.createElement('div');

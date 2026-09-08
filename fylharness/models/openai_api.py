@@ -111,6 +111,17 @@ class OpenAICompatibleModel(Model):
         choices = data.get("choices", [])
         return choices[0].get("text", "") if choices else ""
 
+    @staticmethod
+    def _extract_usage_details(usage: Dict[str, Any]) -> Dict[str, int]:
+        """Pull cache/reasoning sub-counters from an OpenAI-style usage block."""
+
+        ptd = usage.get("prompt_tokens_details") or {}
+        ctd = usage.get("completion_tokens_details") or {}
+        return {
+            "cached_tokens": int(ptd.get("cached_tokens", 0) or 0),
+            "reasoning_tokens": int(ctd.get("reasoning_tokens", 0) or 0),
+        }
+
     # ----------------------------------------------------------------- retrying
     def _should_retry(self, status: int) -> bool:
         # Retry on rate-limit and transient server errors.
@@ -154,6 +165,7 @@ class OpenAICompatibleModel(Model):
                         text=self._extract_text(data),
                         prompt_tokens=usage.get("prompt_tokens", 0),
                         completion_tokens=usage.get("completion_tokens", 0),
+                        **self._extract_usage_details(usage),
                         finish_reason=(
                             data.get("choices", [{}])[0].get("finish_reason", "")
                             if data.get("choices")
@@ -221,6 +233,7 @@ class OpenAICompatibleModel(Model):
                                 text=self._extract_text(data),
                                 prompt_tokens=usage.get("prompt_tokens", 0),
                                 completion_tokens=usage.get("completion_tokens", 0),
+                                **self._extract_usage_details(usage),
                                 finish_reason=(
                                     data.get("choices", [{}])[0].get("finish_reason", "")
                                     if data.get("choices")
