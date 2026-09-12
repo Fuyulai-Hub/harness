@@ -35,16 +35,22 @@ FylHarness 借鉴 [DeepSeek-LLM](https://github.com/deepseek-ai/DeepSeek-LLM) �
 
 ### 安装
 
+> **注意：所有安装和运行命令都在仓库根目录执行**——即包含 `pyproject.toml`、`requirements.txt`、`examples/` 的那一层，**不是** `fylharness/fylharness/`（源码包子目录，里面没有这些文件）。如果装错目录，会报
+> `ERROR: Could not open requirements file: No such file or directory: 'requirements.txt'`
+> 或 `does not appear to be a Python project: neither 'setup.py' nor 'pyproject.toml' found`。
+
 ```bash
-# 克隆或进入项目目录
+# 进入仓库根目录（示例路径，按你的实际克隆位置调整）
 cd fylharness
 
-# 安装核心依赖（仅需两个包）
+# 安装核心依赖
 python -m pip install -r requirements.txt
 
-# （可选）作为可安装包安装，获得 fylharness 命令行入口
+# 以可编辑方式安装本包——获得 fylharness 命令行入口（后面所有 fylharness 命令都依赖这一步）
 python -m pip install -e .
 ```
+
+安装后若在**新的终端窗口**里仍提示 `fylharness: 无法将"fylharness"项识别为 cmdlet...`，请先确认上一步 `pip install -e .` 已成功，且当前终端的 `PATH` 里包含 Python 的 `Scripts` 目录（如 `C:\Python314\Scripts`）；重开一个终端通常即可生效。
 
 可选 extras：
 
@@ -62,9 +68,11 @@ python -m pip install -e ".[dev]"     # 安装 pytest 用于跑测试
 # 方式一：Python 脚本
 python examples/run_demo.py
 
-# 方式二：CLI（安装包后可用 fylharness 命令；未安装可用 python -m fylharness.cli）
+# 方式二：CLI（需先 pip install -e .；未安装可用 python -m fylharness.cli）
 fylharness run examples/config_mock.yaml
 ```
+
+> **路径提示**：命令行里传的配置文件路径是**相对当前工作目录**解析的，所以请在仓库根目录执行上述命令。如果已在别的目录，报 `FileNotFoundError: Config file not found: examples\config_mock.yaml` 就是因为 `examples/` 不在当前目录下——要么 `cd` 回仓库根目录，要么传绝对路径。配置文件内部引用的数据路径（如 `data/mmlu_sample.json`）则是相对**配置文件所在目录**解析的，不受 CWD 影响。
 
 输出示例：
 
@@ -118,12 +126,33 @@ fylharness web outputs/demo_mock --port 8080   # 指定端口
 # 设置 API Key（敏感信息绝不写入配置文件）
 set OPENAI_API_KEY=sk-xxxx          # Windows cmd
 $env:OPENAI_API_KEY="sk-xxxx"       # PowerShell
+```
 
+> **环境变量只对当前终端会话生效**：PowerShell 的 `$env:` 赋值关闭窗口后即失效，每次新开终端需要重新设置；想永久生效可用 `setx ZHIPU_API_KEY "你的key"`（设置后需重开终端才可见），或在系统属性 → 环境变量里添加。
+
+```bash
 # 编辑 examples/config_openai.yaml 指向你的端点，然后运行
 fylharness run examples/config_openai.yaml --limit 4
 ```
 
 `config_openai.yaml` 内同时给出了 OpenAI 官方 API 与本地服务器（vLLM/Ollama）两种写法模板。
+
+### 对接智谱 GLM（BigModel 开放平台）
+
+智谱提供 OpenAI 兼容端点，零代码改动即可接入。仓库自带 `examples/config_zhipu.yaml`（内置免费的 `glm-4.7-flash` 与 `glm-4-flash`）：
+
+```bash
+# 1. 在 https://open.bigmodel.cn/usercenter/apikeys 获取 API Key
+# 2. 设置环境变量——注意是 ZHIPU_API_KEY，不是 OPENAI_API_KEY
+$env:ZHIPU_API_KEY="你的key"        # PowerShell
+set ZHIPU_API_KEY=你的key           # Windows cmd
+
+# 3. 运行评估或启动交互式 Harness
+fylharness run examples/config_zhipu.yaml --limit 4
+fylharness serve examples/config_zhipu.yaml
+```
+
+如果启动后日志出现 `WARNING: Model 'glm-4.7-flash' has no API key (env ZHIPU_API_KEY unset). Using 'EMPTY'`，说明对应的环境变量没有设置（或设置在了别的终端会话里）。环境变量名要与配置里的 `api_key_env` 字段一致——智谱配置读的是 `ZHIPU_API_KEY`，设成 `OPENAI_API_KEY` 是不生效的。
 
 ---
 
@@ -170,6 +199,7 @@ fylharness/
 ├── examples/                     # 示例
 │   ├── config_mock.yaml          # 离线 demo 配置（mock 模型）
 │   ├── config_openai.yaml       # 真实 OpenAI 兼容端点配置
+│   ├── config_zhipu.yaml        # 智谱 GLM（BigModel）配置，读 ZHIPU_API_KEY 环境变量
 │   ├── run_demo.py               # 一键运行离线 demo
 │   └── data/
 │       ├── mmlu_sample.json      # 8 条多项选择题样例
@@ -614,6 +644,13 @@ set OPENAI_API_KEY=sk-xxxx
 fylharness serve examples/config_openai.yaml
 ```
 
+智谱 GLM 用户改用 `examples/config_zhipu.yaml` 并设置 `ZHIPU_API_KEY`（详见第 1 节"对接智谱 GLM"）：
+
+```bash
+$env:ZHIPU_API_KEY="你的key"
+fylharness serve examples/config_zhipu.yaml
+```
+
 浏览器里的 Playground 立刻能和 GPT-4o / Qwen / DeepSeek 等真实模型对话，Evaluate Tab 能跑真实评估。
 
 ### 8.6 Agent 工作区（自主任务执行）
@@ -728,6 +765,21 @@ serve_dashboard("outputs/demo_mock", port=8080, open_browser=True)
 ---
 
 ## 10. 常见问题 (FAQ)
+
+**Q: 报 `ERROR: Could not open requirements file: No such file or directory: 'requirements.txt'`**  
+A: 当前目录不对。`requirements.txt` 和 `pyproject.toml` 在**仓库根目录**，而源码包子目录 `fylharness/` 里没有。`cd` 回仓库根目录再执行 `python -m pip install -r requirements.txt`。
+
+**Q: 报 `does not appear to be a Python project: neither 'setup.py' nor 'pyproject.toml' found`**  
+A: 同样是在 `fylharness/` 源码包子目录里执行了 `pip install -e .`。回到仓库根目录（`pyproject.toml` 所在层）再装。
+
+**Q: 提示 `fylharness: 无法将"fylharness"项识别为 cmdlet、函数、脚本文件或可运行程序的名称`**  
+A: 还没有安装包，或者安装后没有重开终端。先在仓库根目录执行 `python -m pip install -e .`；装完后若当前会话仍找不到命令，重开一个终端（确认 Python 的 `Scripts` 目录在 `PATH` 中）。安装前可以先用 `python -m fylharness.cli ...` 代替。
+
+**Q: 报 `FileNotFoundError: Config file not found: examples\config_mock.yaml`**  
+A: 命令行传入的配置路径相对**当前工作目录**解析。`examples/` 在仓库根目录下，请在根目录执行命令，或传入绝对路径。
+
+**Q: 日志警告 `Model 'xxx' has no API key (env ZHIPU_API_KEY unset). Using 'EMPTY'`，请求 401？**  
+A: 模型配置里的 `api_key_env` 指定的环境变量没有读到。注意变量名要与配置一致：智谱 GLM 配置（`examples/config_zhipu.yaml`）读的是 `ZHIPU_API_KEY`，设成 `OPENAI_API_KEY` 不生效。另外 `$env:` 赋值只对当前 PowerShell 会话有效，要在启动 `fylharness` 的同一个终端里设置；重开终端后需重新设置（或用 `setx` 永久写入）。
 
 **Q: 报 `ModuleNotFoundError: No module named 'yaml'`**  
 A: 未装依赖。`pip install -r requirements.txt`。
